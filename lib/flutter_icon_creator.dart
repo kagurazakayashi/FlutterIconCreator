@@ -1,6 +1,7 @@
 import 'src/cli_args.dart';
 import 'src/i18n/locale.dart';
 import 'src/i18n/strings.dart';
+import 'src/list_mode.dart';
 import 'src/validator.dart';
 
 void run(List<String> arguments) {
@@ -34,12 +35,15 @@ void run(List<String> arguments) {
     return;
   }
 
+  // 列表掃描模式：列出所有圖示與啟動圖片後即結束，不進行轉換
+  if (args.listMode) {
+    runListMode(args);
+    return;
+  }
+
   print(s.validationPassed);
   print('  ${s.flutterProjectPath}: ${args.flutterProjectPath}');
   print('  ${s.targetPlatforms}: ${args.platforms.join(', ')}');
-  if (args.listMode) {
-    print('  ${s.listMode}');
-  }
   if (args.iconSourcePath != null) {
     print('  ${s.iconSourcePath}: ${args.iconSourcePath}');
   }

@@ -23,6 +23,12 @@ class AppStrings {
   String get iconSourcePath => _get(_iconSourcePath);
   String get backgroundSourcePath => _get(_backgroundSourcePath);
   String get flutterProjectPath => _get(_flutterProjectPath);
+  String get listModeHeader => _get(_listModeHeader);
+  String get listModeIconFiles => _get(_listModeIconFiles);
+  String get listModeSplashFiles => _get(_listModeSplashFiles);
+  String get listModeNoFilesFound => _get(_listModeNoFilesFound);
+  String get listModeForeground => _get(_listModeForeground);
+  String get listModeBackground => _get(_listModeBackground);
 
   String parsePubspecError(Object error) =>
       _get(_parsePubspecError).replaceAll('{error}', error.toString());
@@ -166,4 +172,46 @@ const _backgroundSourcePath = {
   SupportedLocale.zhTW: '背景圖示來源檔案',
   SupportedLocale.en: 'Background source file',
   SupportedLocale.ja: '背景画像ソースファイル',
+};
+
+const _listModeHeader = {
+  SupportedLocale.zhCN: '列表扫描模式 - 列出所有图标和启动图片文件',
+  SupportedLocale.zhTW: '列表掃描模式 - 列出所有圖示和啟動圖片檔案',
+  SupportedLocale.en: 'List mode - Listing all icon and splash files',
+  SupportedLocale.ja: 'リストモード - 全アイコンとスプラッシュファイルを一覧表示',
+};
+
+const _listModeIconFiles = {
+  SupportedLocale.zhCN: '图标',
+  SupportedLocale.zhTW: '圖示',
+  SupportedLocale.en: 'Icon',
+  SupportedLocale.ja: 'アイコン',
+};
+
+const _listModeSplashFiles = {
+  SupportedLocale.zhCN: '启动图片',
+  SupportedLocale.zhTW: '啟動圖片',
+  SupportedLocale.en: 'Splash',
+  SupportedLocale.ja: 'スプラッシュ',
+};
+
+const _listModeNoFilesFound = {
+  SupportedLocale.zhCN: '(无)',
+  SupportedLocale.zhTW: '(無)',
+  SupportedLocale.en: '(none)',
+  SupportedLocale.ja: '(なし)',
+};
+
+const _listModeForeground = {
+  SupportedLocale.zhCN: '前景',
+  SupportedLocale.zhTW: '前景',
+  SupportedLocale.en: 'Foreground',
+  SupportedLocale.ja: '前景',
+};
+
+const _listModeBackground = {
+  SupportedLocale.zhCN: '背景',
+  SupportedLocale.zhTW: '背景',
+  SupportedLocale.en: 'Background',
+  SupportedLocale.ja: '背景',
 };
