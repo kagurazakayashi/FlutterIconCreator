@@ -88,6 +88,11 @@ ValidationResult validate(CliArgs args) {
     warnings.add(s.noSourceImages);
   }
 
+  // --backup 與 --restore 互斥
+  if (args.backupPath != null && args.restorePath != null) {
+    errors.add(s.backupRestoreConflict);
+  }
+
   return ValidationResult(
     isValid: errors.isEmpty,
     errors: errors,

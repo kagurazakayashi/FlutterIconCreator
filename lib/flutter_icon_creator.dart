@@ -1,3 +1,4 @@
+import 'src/backup_restore.dart';
 import 'src/cli_args.dart';
 import 'src/i18n/locale.dart';
 import 'src/i18n/strings.dart';
@@ -32,6 +33,18 @@ void run(List<String> arguments) {
     for (final e in result.errors) {
       print('  ${s.errorPrefix}: $e');
     }
+    return;
+  }
+
+  // 備份模式：備份所有圖示與啟動圖片
+  if (args.backupPath != null) {
+    runBackup(args);
+    return;
+  }
+
+  // 還原模式：從備份目錄還原檔案
+  if (args.restorePath != null) {
+    runRestore(args);
     return;
   }
 

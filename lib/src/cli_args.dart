@@ -10,6 +10,8 @@ class CliArgs {
   final bool listMode;
   final String? iconSourcePath;
   final String? backgroundSourcePath;
+  final String? backupPath;
+  final String? restorePath;
   final SupportedLocale locale;
 
   CliArgs({
@@ -19,6 +21,8 @@ class CliArgs {
     required this.locale,
     this.iconSourcePath,
     this.backgroundSourcePath,
+    this.backupPath,
+    this.restorePath,
   });
 }
 
@@ -74,6 +78,16 @@ ArgParser buildArgParser(SupportedLocale defaultLocale) {
       valueHelp: 'path',
     )
     ..addOption(
+      'backup',
+      help: '备份扫描到的图标文件到指定目录',
+      valueHelp: 'path',
+    )
+    ..addOption(
+      'restore',
+      help: '从备份目录恢复图标文件到 Flutter 项目中',
+      valueHelp: 'path',
+    )
+    ..addOption(
       'lang',
       help: '输出语言 (zh_CN, zh_TW, en, ja)，默认跟随系统语言',
       valueHelp: 'locale',
@@ -105,6 +119,8 @@ CliArgs parseArgs(List<String> arguments) {
   final listMode = results['l'] as bool;
   final iconPath = results['i'] as String?;
   final backgroundPath = results['b'] as String?;
+  final backupPath = results['backup'] as String?;
+  final restorePath = results['restore'] as String?;
 
   final lang = results['lang'] as String;
   final locale = localeFromString(lang);
@@ -116,5 +132,7 @@ CliArgs parseArgs(List<String> arguments) {
     locale: locale,
     iconSourcePath: iconPath,
     backgroundSourcePath: backgroundPath,
+    backupPath: backupPath,
+    restorePath: restorePath,
   );
 }

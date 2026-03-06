@@ -29,6 +29,9 @@ class AppStrings {
   String get listModeNoFilesFound => _get(_listModeNoFilesFound);
   String get listModeForeground => _get(_listModeForeground);
   String get listModeBackground => _get(_listModeBackground);
+  String get backupRestoreConflict => _get(_backupRestoreConflict);
+  String get backupNoFiles => _get(_backupNoFiles);
+  String get restoreNoFiles => _get(_restoreNoFiles);
 
   String parsePubspecError(Object error) =>
       _get(_parsePubspecError).replaceAll('{error}', error.toString());
@@ -42,6 +45,39 @@ class AppStrings {
 
   String backgroundFileNotFound(String path) =>
       _get(_backgroundFileNotFound).replaceAll('{path}', path);
+
+  String backupSingleFile(String platform, int count, String backupDir) =>
+      _get(_backupSingleFile)
+          .replaceAll('{platform}', platform)
+          .replaceAll('{count}', count.toString())
+          .replaceAll('{dir}', backupDir);
+
+  String backupMultipleFiles(String platform, int count, String backupDir) =>
+      _get(_backupMultipleFiles)
+          .replaceAll('{platform}', platform)
+          .replaceAll('{count}', count.toString())
+          .replaceAll('{dir}', backupDir);
+
+  String backupComplete(int total, String backupDir) =>
+      _get(_backupComplete)
+          .replaceAll('{total}', total.toString())
+          .replaceAll('{dir}', backupDir);
+
+  String restoreSingleFile(String platform, int count) =>
+      _get(_restoreSingleFile)
+          .replaceAll('{platform}', platform)
+          .replaceAll('{count}', count.toString());
+
+  String restoreMultipleFiles(String platform, int count) =>
+      _get(_restoreMultipleFiles)
+          .replaceAll('{platform}', platform)
+          .replaceAll('{count}', count.toString());
+
+  String restoreComplete(int total) =>
+      _get(_restoreComplete).replaceAll('{total}', total.toString());
+
+  String restoreDirNotFound(String path) =>
+      _get(_restoreDirNotFound).replaceAll('{path}', path);
 
   String _get(Map<SupportedLocale, String> map) {
     return map[locale] ?? map[SupportedLocale.en]!;
@@ -214,4 +250,74 @@ const _listModeBackground = {
   SupportedLocale.zhTW: '背景',
   SupportedLocale.en: 'Background',
   SupportedLocale.ja: '背景',
+};
+
+const _backupRestoreConflict = {
+  SupportedLocale.zhCN: '--backup 与 --restore 不能同时使用',
+  SupportedLocale.zhTW: '--backup 與 --restore 不能同時使用',
+  SupportedLocale.en: '--backup and --restore cannot be used together',
+  SupportedLocale.ja: '--backup と --restore は同時に使用できません',
+};
+
+const _restoreDirNotFound = {
+  SupportedLocale.zhCN: '备份目录不存在: {path}',
+  SupportedLocale.zhTW: '備份目錄不存在: {path}',
+  SupportedLocale.en: 'Backup directory not found: {path}',
+  SupportedLocale.ja: 'バックアップディレクトリが見つかりません: {path}',
+};
+
+const _backupSingleFile = {
+  SupportedLocale.zhCN: '{platform}：已备份 {count} 个文件至 {dir}',
+  SupportedLocale.zhTW: '{platform}：已備份 {count} 個檔案至 {dir}',
+  SupportedLocale.en: '{platform}: {count} file backed up to {dir}',
+  SupportedLocale.ja: '{platform}：{count} ファイルを {dir} にバックアップしました',
+};
+
+const _backupMultipleFiles = {
+  SupportedLocale.zhCN: '{platform}：已备份 {count} 个文件至 {dir}',
+  SupportedLocale.zhTW: '{platform}：已備份 {count} 個檔案至 {dir}',
+  SupportedLocale.en: '{platform}: {count} files backed up to {dir}',
+  SupportedLocale.ja: '{platform}：{count} ファイルを {dir} にバックアップしました',
+};
+
+const _backupComplete = {
+  SupportedLocale.zhCN: '备份完成，共 {total} 个文件已保存至 {dir}',
+  SupportedLocale.zhTW: '備份完成，共 {total} 個檔案已儲存至 {dir}',
+  SupportedLocale.en: 'Backup complete, {total} file(s) saved to {dir}',
+  SupportedLocale.ja: 'バックアップ完了、{total} ファイルを {dir} に保存しました',
+};
+
+const _backupNoFiles = {
+  SupportedLocale.zhCN: '未找到任何图标或启动图片文件，未执行备份',
+  SupportedLocale.zhTW: '未找到任何圖示或啟動圖片檔案，未執行備份',
+  SupportedLocale.en: 'No icon or splash files found, no backup performed',
+  SupportedLocale.ja: 'アイコンまたはスプラッシュファイルが見つかりません。バックアップは実行されませんでした',
+};
+
+const _restoreSingleFile = {
+  SupportedLocale.zhCN: '{platform}：已还原 {count} 个文件',
+  SupportedLocale.zhTW: '{platform}：已還原 {count} 個檔案',
+  SupportedLocale.en: '{platform}: {count} file restored',
+  SupportedLocale.ja: '{platform}：{count} ファイルを復元しました',
+};
+
+const _restoreMultipleFiles = {
+  SupportedLocale.zhCN: '{platform}：已还原 {count} 个文件',
+  SupportedLocale.zhTW: '{platform}：已還原 {count} 個檔案',
+  SupportedLocale.en: '{platform}: {count} files restored',
+  SupportedLocale.ja: '{platform}：{count} ファイルを復元しました',
+};
+
+const _restoreComplete = {
+  SupportedLocale.zhCN: '还原完成，共 {total} 个文件已还原',
+  SupportedLocale.zhTW: '還原完成，共 {total} 個檔案已還原',
+  SupportedLocale.en: 'Restore complete, {total} file(s) restored',
+  SupportedLocale.ja: '復元完了、{total} ファイルを復元しました',
+};
+
+const _restoreNoFiles = {
+  SupportedLocale.zhCN: '备份目录中未找到任何平台文件，未执行还原',
+  SupportedLocale.zhTW: '備份目錄中未找到任何平台檔案，未執行還原',
+  SupportedLocale.en: 'No platform files found in backup directory, no restore performed',
+  SupportedLocale.ja: 'バックアップディレクトリにプラットフォームファイルが見つかりません。復元は実行されませんでした',
 };
