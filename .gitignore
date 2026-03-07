@@ -1,3 +1,21 @@
+### Icon Images ###
+# Ignore generated icon/launcher image files across all platforms
+**/*[Ii]con*.png
+**/*[Ii]con*.ico
+**/*[Ii]con*.icns
+**/*[Ii]con*.jpg
+**/*[Ii]con*.jpeg
+**/*[Ii]con*.bmp
+**/*[Ii]con*.svg
+**/*[Ii]con*.webp
+# Android launcher icons
+**/ic_launcher*.png
+**/launch_background.png
+# iOS launch images
+**/LaunchImage*.png
+### End of  Icon Images ###
+
+
 # Created by https://www.toptal.com/developers/gitignore/api/windows,macos,linux,android,xcode,web,flutter,dart
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows,macos,linux,android,xcode,web,flutter,dart
 

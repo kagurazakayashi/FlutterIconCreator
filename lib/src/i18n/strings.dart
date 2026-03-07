@@ -32,6 +32,7 @@ class AppStrings {
   String get backupRestoreConflict => _get(_backupRestoreConflict);
   String get backupNoFiles => _get(_backupNoFiles);
   String get restoreNoFiles => _get(_restoreNoFiles);
+  String get decodeImageFailedPrefix => _get(_decodeImageFailedPrefix);
 
   String parsePubspecError(Object error) =>
       _get(_parsePubspecError).replaceAll('{error}', error.toString());
@@ -78,6 +79,35 @@ class AppStrings {
 
   String restoreDirNotFound(String path) =>
       _get(_restoreDirNotFound).replaceAll('{path}', path);
+
+  String decodeImageFailed(String path) =>
+      _get(_decodeImageFailedPrefix).replaceAll('{path}', path);
+
+  String procesandoPlatforma(String platform) =>
+      _get(_procesandoPlatforma).replaceAll('{platform}', platform);
+
+  String skippingLayerFg(String path) =>
+      _get(_skippingLayerFg).replaceAll('{path}', path);
+
+  String skippingLayerBg(String path) =>
+      _get(_skippingLayerBg).replaceAll('{path}', path);
+
+  String generandoIcono(String path, int width, int height) =>
+      _get(_generandoIcono)
+          .replaceAll('{path}', path)
+          .replaceAll('{width}', width.toString())
+          .replaceAll('{height}', height.toString());
+
+  String generandoIco(String path) =>
+      _get(_generandoIco).replaceAll('{path}', path);
+
+  String generacionCompletada(int count) =>
+      _get(_generacionCompletada).replaceAll('{count}', count.toString());
+
+  String writeError(String path, String error) =>
+      _get(_writeError)
+          .replaceAll('{path}', path)
+          .replaceAll('{error}', error);
 
   String _get(Map<SupportedLocale, String> map) {
     return map[locale] ?? map[SupportedLocale.en]!;
@@ -320,4 +350,60 @@ const _restoreNoFiles = {
   SupportedLocale.zhTW: '備份目錄中未找到任何平台檔案，未執行還原',
   SupportedLocale.en: 'No platform files found in backup directory, no restore performed',
   SupportedLocale.ja: 'バックアップディレクトリにプラットフォームファイルが見つかりません。復元は実行されませんでした',
+};
+
+const _decodeImageFailedPrefix = {
+  SupportedLocale.zhCN: '无法解码图片文件: {path}',
+  SupportedLocale.zhTW: '無法解碼圖片檔案: {path}',
+  SupportedLocale.en: 'Failed to decode image file: {path}',
+  SupportedLocale.ja: '画像ファイルをデコードできません: {path}',
+};
+
+const _procesandoPlatforma = {
+  SupportedLocale.zhCN: '正在处理 {platform} 平台...',
+  SupportedLocale.zhTW: '正在處理 {platform} 平台...',
+  SupportedLocale.en: 'Processing {platform} platform...',
+  SupportedLocale.ja: '{platform} プラットフォームを処理中...',
+};
+
+const _skippingLayerFg = {
+  SupportedLocale.zhCN: '跳过（无前景源图片）: {path}',
+  SupportedLocale.zhTW: '跳過（無前景來源圖片）: {path}',
+  SupportedLocale.en: 'Skipping (no foreground source): {path}',
+  SupportedLocale.ja: 'スキップ（前景ソースなし）: {path}',
+};
+
+const _skippingLayerBg = {
+  SupportedLocale.zhCN: '跳过（无背景源图片）: {path}',
+  SupportedLocale.zhTW: '跳過（無背景來源圖片）: {path}',
+  SupportedLocale.en: 'Skipping (no background source): {path}',
+  SupportedLocale.ja: 'スキップ（背景ソースなし）: {path}',
+};
+
+const _generandoIcono = {
+  SupportedLocale.zhCN: '  生成: {path} ({width}x{height})',
+  SupportedLocale.zhTW: '  生成: {path} ({width}x{height})',
+  SupportedLocale.en: '  Generated: {path} ({width}x{height})',
+  SupportedLocale.ja: '  生成: {path} ({width}x{height})',
+};
+
+const _generandoIco = {
+  SupportedLocale.zhCN: '  生成 ICO: {path}',
+  SupportedLocale.zhTW: '  生成 ICO: {path}',
+  SupportedLocale.en: '  Generated ICO: {path}',
+  SupportedLocale.ja: '  ICO を生成: {path}',
+};
+
+const _generacionCompletada = {
+  SupportedLocale.zhCN: '生成完成，共 {count} 个文件',
+  SupportedLocale.zhTW: '生成完成，共 {count} 個檔案',
+  SupportedLocale.en: 'Generation complete, {count} file(s) generated',
+  SupportedLocale.ja: '生成完了、{count} ファイルを生成しました',
+};
+
+const _writeError = {
+  SupportedLocale.zhCN: '写入文件失败: {path}: {error}',
+  SupportedLocale.zhTW: '寫入檔案失敗: {path}: {error}',
+  SupportedLocale.en: 'Failed to write file: {path}: {error}',
+  SupportedLocale.ja: 'ファイル書き込み失敗: {path}: {error}',
 };
