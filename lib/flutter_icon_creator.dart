@@ -2,6 +2,7 @@ import 'src/backup_restore.dart';
 import 'src/cli_args.dart';
 import 'src/i18n/locale.dart';
 import 'src/i18n/strings.dart';
+import 'src/icon_generator.dart';
 import 'src/list_mode.dart';
 import 'src/validator.dart';
 
@@ -54,13 +55,6 @@ void run(List<String> arguments) {
     return;
   }
 
-  print(s.validationPassed);
-  print('  ${s.flutterProjectPath}: ${args.flutterProjectPath}');
-  print('  ${s.targetPlatforms}: ${args.platforms.join(', ')}');
-  if (args.iconSourcePath != null) {
-    print('  ${s.iconSourcePath}: ${args.iconSourcePath}');
-  }
-  if (args.backgroundSourcePath != null) {
-    print('  ${s.backgroundSourcePath}: ${args.backgroundSourcePath}');
-  }
+  // 圖示生成模式：為各平台產生圖示與啟動圖片
+  runGenerate(args, s);
 }
