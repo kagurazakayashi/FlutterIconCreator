@@ -56,6 +56,7 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
     for (final output in spec.iconOutputs) {
       final generated = await _generarYGuardar(
         output, fgImage, bgImage, args.flutterProjectPath, s,
+        whiteBase: spec.requiresOpaqueIcons,
       );
       if (generated) totalGenerated++;
     }
@@ -64,6 +65,7 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
     for (final output in spec.splashOutputs) {
       final generated = await _generarYGuardar(
         output, fgImage, bgImage, args.flutterProjectPath, s,
+        whiteBase: spec.requiresOpaqueIcons,
       );
       if (generated) totalGenerated++;
     }
@@ -71,7 +73,9 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
     // 處理多尺寸 ICO 輸出
     for (final entry in spec.icoOutputs.entries) {
       final generated = await _generarIco(
-        entry.key, entry.value, fgImage, bgImage, args.flutterProjectPath, s,
+        entry.key, entry.value, fgImage, bgImage,
+        args.flutterProjectPath, s,
+        whiteBase: spec.requiresOpaqueIcons,
       );
       if (generated) totalGenerated++;
     }
@@ -88,8 +92,9 @@ Future<bool> _generarYGuardar(
   img.Image? fgImage,
   img.Image? bgImage,
   String projectPath,
-  AppStrings s,
-) async {
+  AppStrings s, {
+  bool whiteBase = false,
+}) async {
   // 根據圖層類型決定需要哪些來源圖片
   // 合併圖層只需至少一張圖片即可，前景/背景圖層則嚴格要求對應圖片
   if (output.layer == ImageLayer.foreground && fgImage == null) {
@@ -115,6 +120,7 @@ Future<bool> _generarYGuardar(
     case ImageLayer.merged:
       generated = _fusionar(
         fgImage, bgImage, output.width, output.height,
+        whiteBase: whiteBase,
       );
   }
 
@@ -145,8 +151,9 @@ Future<bool> _generarIco(
   img.Image? fgImage,
   img.Image? bgImage,
   String projectPath,
-  AppStrings s,
-) async {
+  AppStrings s, {
+  bool whiteBase = false,
+}) async {
   if (fgImage == null && bgImage == null) return false;
 
   final icoImages = <img.Image>[];
@@ -154,13 +161,22 @@ Future<bool> _generarIco(
   for (final spec in icoSpecs) {
     final img.Image sized;
     if (fgImage != null && bgImage != null) {
-      sized = _fusionar(fgImage, bgImage, spec.width, spec.height);
+      sized = _fusionar(fgImage, bgImage, spec.width, spec.height,
+          whiteBase: whiteBase);
     } else if (fgImage != null) {
-      sized = _escalarProporcional(fgImage, spec.width, spec.height);
+      if (whiteBase) {
+        sized = _fusionar(fgImage, null, spec.width, spec.height,
+            whiteBase: true);
+      } else {
+        sized = _escalarProporcional(fgImage, spec.width, spec.height);
+      }
     } else {
-      // 只有背景圖的情況：拉伸背景作為圖示內容，但背景拉伸成方形可能不美觀，
-      // 故仍用背景拉伸處理。
-      sized = _estirar(bgImage!, spec.width, spec.height);
+      if (whiteBase) {
+        sized = _fusionar(null, bgImage, spec.width, spec.height,
+            whiteBase: true);
+      } else {
+        sized = _estirar(bgImage!, spec.width, spec.height);
+      }
     }
     icoImages.add(sized);
   }
@@ -231,40 +247,67 @@ img.Image _estirar(img.Image src, int targetW, int targetH) {
 
 /// 合併前景與背景圖：背景拉伸填滿，前景居中並保持比例。
 ///
-/// 若僅提供前景則放在透明畫布上，若僅提供背景則直接拉伸。
+/// 若 [whiteBase] 為 true，則最底層會先放置白色不透明底色，
+/// 確保輸出圖片無透明區域（iOS App Icon 要求）。
+///
+/// 若僅提供前景則放在透明（或白色）畫布上，若僅提供背景則直接拉伸。
 img.Image _fusionar(
   img.Image? fgSrc,
   img.Image? bgSrc,
   int targetW,
-  int targetH,
-) {
-  // 僅有背景：直接拉伸
-  if (fgSrc == null && bgSrc != null) {
-    return _estirar(bgSrc, targetW, targetH);
+  int targetH, {
+  bool whiteBase = false,
+}) {
+  // 需要白色底色的情況：建立白色畫布作為基底
+  img.Image result;
+  if (whiteBase) {
+    // 建立不透明的白色基底畫布
+    result = img.Image(
+      width: targetW,
+      height: targetH,
+      numChannels: 4,
+    );
+    img.fill(result, color: img.ColorRgba8(255, 255, 255, 255));
+  } else {
+    // 無需白色底色：建立透明基底（前景層）
+    result = img.Image(
+      width: targetW,
+      height: targetH,
+      numChannels: 4,
+    );
+    img.fill(result, color: img.ColorRgba8(0, 0, 0, 0));
   }
 
-  // 僅有前景：縮放後置於透明畫布上
+  // 僅有前景：縮放後居中合成到基底上
   if (fgSrc != null && bgSrc == null) {
-    return _escalarProporcional(fgSrc, targetW, targetH);
+    final fgSized = _escalarProporcional(fgSrc, targetW, targetH);
+    img.compositeImage(result, fgSized);
+    return result;
   }
 
-  // 兩者皆有：先建立拉伸後的背景
-  final result = _estirar(bgSrc!, targetW, targetH);
+  // 僅有背景：拉伸後合成到基底上
+  if (fgSrc == null && bgSrc != null) {
+    final bgStretched = _estirar(bgSrc, targetW, targetH);
+    img.compositeImage(result, bgStretched);
+    return result;
+  }
+
+  // 兩者皆有：先合成拉伸後的背景，再合成前景
+  final bgStretched = _estirar(bgSrc!, targetW, targetH);
+  img.compositeImage(result, bgStretched);
 
   // 計算前景縮放比例，使其容納在目標尺寸內
   final scale = _calcularEscala(fgSrc!.width, fgSrc.height, targetW, targetH);
   final fgW = (fgSrc.width * scale).round();
   final fgH = (fgSrc.height * scale).round();
 
-  // 縮放前景圖
+  // 縮放前景圖並居中合成
   final fgScaled = img.copyResize(
     fgSrc,
     width: fgW,
     height: fgH,
     interpolation: img.Interpolation.cubic,
   );
-
-  // 居中合成前景到背景上
   final offsetX = ((targetW - fgW) / 2).round();
   final offsetY = ((targetH - fgH) / 2).round();
   img.compositeImage(result, fgScaled, dstX: offsetX, dstY: offsetY);

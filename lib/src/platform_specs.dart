@@ -49,11 +49,15 @@ class PlatformSpec {
   /// Map key 為 ICO 輸出檔案路徑，value 為多個尺寸規格清單。
   final Map<String, List<IconOutput>> icoOutputs;
 
+  /// 是否需要不透明底色（如 iOS App Icon 不允許透明區域）。
+  final bool requiresOpaqueIcons;
+
   const PlatformSpec({
     required this.name,
     this.iconOutputs = const [],
     this.splashOutputs = const [],
     this.icoOutputs = const {},
+    this.requiresOpaqueIcons = false,
   });
 }
 
@@ -184,6 +188,7 @@ PlatformSpec _buildIosSpec() {
     name: 'ios',
     iconOutputs: fullIconOutputs,
     splashOutputs: splashOutputs,
+    requiresOpaqueIcons: true,
   );
 }
 
