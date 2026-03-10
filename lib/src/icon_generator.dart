@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'cli_args.dart';
 import 'i18n/strings.dart';
 import 'platform_specs.dart';
+import 'scanner.dart';
+import 'size_detector.dart';
 
 /// 為 Flutter 專案生成各平台的圖示與啟動圖片。
 ///
@@ -52,17 +54,13 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
 
     print(s.procesandoPlatforma(platform));
 
-    // 處理一般 PNG 圖示輸出
-    for (final output in spec.iconOutputs) {
-      final generated = await _generarYGuardar(
-        output, fgImage, bgImage, args.flutterProjectPath, s,
-        whiteBase: spec.requiresOpaqueIcons,
-      );
-      if (generated) totalGenerated++;
-    }
+    // 掃描現有檔案並建立輸出清單（合併預定義規格與掃描結果）
+    final outputs = _scanAndBuildOutputs(
+      args.flutterProjectPath, platform, spec, s,
+    );
 
-    // 處理一般 PNG 啟動圖片輸出
-    for (final output in spec.splashOutputs) {
+    // 處理一般 PNG 輸出
+    for (final output in outputs) {
       final generated = await _generarYGuardar(
         output, fgImage, bgImage, args.flutterProjectPath, s,
         whiteBase: spec.requiresOpaqueIcons,
@@ -82,6 +80,88 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
   }
 
   print(s.generacionCompletada(totalGenerated));
+}
+
+/// 掃描目標目錄中的現有圖片檔案，並與預定義規格合併為最終的輸出清單。
+///
+/// 對於掃描到的檔案：優先從檔名/目錄結構偵測目標尺寸，
+/// 若無法偵測則讀取檔案本身的像素尺寸作為目標。
+///
+/// 對於預定義規格中存在但尚未存在的檔案，保留預定義尺寸作為兜底。
+List<IconOutput> _scanAndBuildOutputs(
+  String projectPath,
+  String platform,
+  PlatformSpec spec,
+  AppStrings s,
+) {
+  // 以相對路徑為 key 的輸出清單，用於去重
+  final outputMap = <String, IconOutput>{};
+
+  // 第一步：加入預定義規格中的所有輸出（兜底）
+  for (final o in [...spec.iconOutputs, ...spec.splashOutputs]) {
+    outputMap[o.relativePath] = o;
+  }
+
+  // 第二步：掃描現有檔案，更新/補充輸出清單
+  final scanResult = scanPlatform(projectPath, platform, s);
+  final allFiles = [...scanResult.icons, ...scanResult.splash];
+
+  for (final sf in allFiles) {
+    final relativePath = p.relative(sf.file.path, from: projectPath);
+
+    // 動態偵測目標尺寸
+    ({int width, int height})? size;
+    final detected = detectTargetSize(sf.file.path, platform);
+    if (detected != null) {
+      size = detected;
+    } else {
+      // 無法從檔名/路徑偵測，讀取原始圖片尺寸
+      final imgSize = _getFileImageSize(sf.file.path);
+      if (imgSize != null) {
+        size = imgSize;
+      }
+    }
+
+    if (size == null) continue; // 無法取得尺寸則略過
+
+    // 決定圖層類型
+    final layer = _tagToLayer(sf.tag);
+
+    // 更新或新增輸出（以相對路徑去重）
+    outputMap[relativePath] = IconOutput(
+      relativePath: relativePath,
+      width: size.width,
+      height: size.height,
+      layer: layer,
+    );
+  }
+
+  return outputMap.values.toList();
+}
+
+/// 將掃描器的標籤轉換為 [ImageLayer] 列舉值。
+ImageLayer _tagToLayer(String? tag) {
+  if (tag == null) return ImageLayer.merged;
+  // 掃描器標籤為 i18n 字串，需比對所有可能語言的「前景」與「背景」
+  const fgValues = {'前景', 'Foreground'};
+  const bgValues = {'背景', 'Background'};
+  if (fgValues.contains(tag)) return ImageLayer.foreground;
+  if (bgValues.contains(tag)) return ImageLayer.background;
+  return ImageLayer.merged;
+}
+
+/// 讀取圖片檔案的實際像素尺寸作為備用尺寸偵測。
+({int width, int height})? _getFileImageSize(String filePath) {
+  try {
+    final bytes = File(filePath).readAsBytesSync();
+    final image = img.decodeImage(bytes);
+    if (image != null) {
+      return (width: image.width, height: image.height);
+    }
+  } catch (_) {
+    // 讀取失敗則略過
+  }
+  return null;
 }
 
 /// 根據圖層類型生成單一圖片並寫入檔案。
