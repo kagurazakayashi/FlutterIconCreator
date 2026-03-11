@@ -13,6 +13,8 @@ class CliArgs {
   final String? backupPath;
   final String? restorePath;
   final SupportedLocale locale;
+  /// 圖示圓角半徑（像素），null 表示根據 iOS 圓角比例自動計算。
+  final double? radius;
 
   CliArgs({
     required this.flutterProjectPath,
@@ -23,6 +25,7 @@ class CliArgs {
     this.backgroundSourcePath,
     this.backupPath,
     this.restorePath,
+    this.radius,
   });
 }
 
@@ -41,6 +44,40 @@ SupportedLocale detectSystemLocale() {
   } catch (_) {
     return SupportedLocale.en;
   }
+}
+
+/// 標準化路徑中的分隔符，使輸入相容 \ 和 /，輸出統一使用 [Platform.pathSeparator]。
+///
+/// 保留 UNC 路徑前綴（例如 \\\\server\\share），
+/// 並合併連續重複的分隔符為單一平台分隔符。
+String normalizarRuta(String path) {
+  // 保留 UNC 路徑前綴
+  final isUnc = path.startsWith(r'\\');
+  String processed;
+  if (isUnc) {
+    processed = path.substring(2);
+  } else {
+    processed = path;
+  }
+
+  // 將所有分隔符統一為平台分隔符
+  processed = processed
+      .replaceAll('/', Platform.pathSeparator)
+      .replaceAll('\\', Platform.pathSeparator);
+
+  // 合併連續重複的分隔符
+  final doubleSep =
+      '${Platform.pathSeparator}${Platform.pathSeparator}';
+  while (processed.contains(doubleSep)) {
+    processed = processed.replaceAll(doubleSep, Platform.pathSeparator);
+  }
+
+  // 還原 UNC 前綴
+  if (isUnc) {
+    processed = '${Platform.pathSeparator}${Platform.pathSeparator}$processed';
+  }
+
+  return processed;
 }
 
 ArgParser buildArgParser(SupportedLocale defaultLocale) {
@@ -93,6 +130,12 @@ ArgParser buildArgParser(SupportedLocale defaultLocale) {
       valueHelp: 'locale',
       defaultsTo: localeToCode(defaultLocale),
       allowed: ['zh_CN', 'zh_TW', 'en', 'ja'],
+    )
+    ..addOption(
+      'r',
+      abbr: 'r',
+      help: '图标圆角半径（像素），默认根据 iOS 圆角比例自动计算。仅对 iOS 以外的平台图标生效，启动画面不受影响',
+      valueHelp: 'radius',
     );
   return parser;
 }
@@ -102,7 +145,7 @@ CliArgs parseArgs(List<String> arguments) {
   final parser = buildArgParser(systemLocale);
   final results = parser.parse(arguments);
 
-  final flutterPath = results['f'] as String;
+  final flutterPath = normalizarRuta(results['f'] as String);
 
   final platformsRaw = results['p'] as String;
   List<String> platforms;
@@ -117,13 +160,31 @@ CliArgs parseArgs(List<String> arguments) {
   }
 
   final listMode = results['l'] as bool;
-  final iconPath = results['i'] as String?;
-  final backgroundPath = results['b'] as String?;
-  final backupPath = results['backup'] as String?;
-  final restorePath = results['restore'] as String?;
+  final iconPathRaw = results['i'] as String?;
+  final iconPath = iconPathRaw != null ? normalizarRuta(iconPathRaw) : null;
+  final backgroundPathRaw = results['b'] as String?;
+  final backgroundPath = backgroundPathRaw != null ? normalizarRuta(backgroundPathRaw) : null;
+  final backupPathRaw = results['backup'] as String?;
+  final backupPath = backupPathRaw != null ? normalizarRuta(backupPathRaw) : null;
+  final restorePathRaw = results['restore'] as String?;
+  final restorePath = restorePathRaw != null ? normalizarRuta(restorePathRaw) : null;
 
   final lang = results['lang'] as String;
   final locale = localeFromString(lang);
+
+  // 解析圓角半徑參數（選用，像素值）
+  double? radius;
+  final radiusRaw = results['r'] as String?;
+  if (radiusRaw != null) {
+    final parsed = double.tryParse(radiusRaw);
+    if (parsed == null) {
+      throw FormatException('圆角半径参数无效，必须为数字: $radiusRaw');
+    }
+    if (parsed < 0) {
+      throw FormatException('圆角半径不能为负数: $radiusRaw');
+    }
+    radius = parsed;
+  }
 
   return CliArgs(
     flutterProjectPath: flutterPath,
@@ -134,5 +195,6 @@ CliArgs parseArgs(List<String> arguments) {
     backgroundSourcePath: backgroundPath,
     backupPath: backupPath,
     restorePath: restorePath,
+    radius: radius,
   );
 }

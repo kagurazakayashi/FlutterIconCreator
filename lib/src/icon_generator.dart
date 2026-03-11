@@ -61,19 +61,28 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
 
     // 處理一般 PNG 輸出
     for (final output in outputs) {
+      // 判斷是否需要套用圓角：非 iOS 平台、非啟動圖片
+      final bool aplicarRadio = platform != 'ios' && !output.isSplash;
+      final double? radio = aplicarRadio
+          ? _calcularRadio(args.radius, output.width, output.height)
+          : null;
+
       final generated = await _generarYGuardar(
         output, fgImage, bgImage, args.flutterProjectPath, s,
         whiteBase: spec.requiresOpaqueIcons,
+        radio: radio,
       );
       if (generated) totalGenerated++;
     }
 
     // 處理多尺寸 ICO 輸出
     for (final entry in spec.icoOutputs.entries) {
+      // ICO 僅用於非啟動畫面，且非 iOS 平台，直接傳遞 radius 參數
       final generated = await _generarIco(
         entry.key, entry.value, fgImage, bgImage,
         args.flutterProjectPath, s,
         whiteBase: spec.requiresOpaqueIcons,
+        radius: args.radius,
       );
       if (generated) totalGenerated++;
     }
@@ -104,39 +113,56 @@ List<IconOutput> _scanAndBuildOutputs(
 
   // 第二步：掃描現有檔案，更新/補充輸出清單
   final scanResult = scanPlatform(projectPath, platform, s);
-  final allFiles = [...scanResult.icons, ...scanResult.splash];
 
-  for (final sf in allFiles) {
-    final relativePath = p.relative(sf.file.path, from: projectPath);
+  // 處理掃描到的圖示檔案（非啟動畫面）
+  for (final sf in scanResult.icons) {
+    _updateOutputFromScanned(outputMap, sf, projectPath, platform, false);
+  }
 
-    // 動態偵測目標尺寸
-    ({int width, int height})? size;
-    final detected = detectTargetSize(sf.file.path, platform);
-    if (detected != null) {
-      size = detected;
-    } else {
-      // 無法從檔名/路徑偵測，讀取原始圖片尺寸
-      final imgSize = _getFileImageSize(sf.file.path);
-      if (imgSize != null) {
-        size = imgSize;
-      }
-    }
-
-    if (size == null) continue; // 無法取得尺寸則略過
-
-    // 決定圖層類型
-    final layer = _tagToLayer(sf.tag);
-
-    // 更新或新增輸出（以相對路徑去重）
-    outputMap[relativePath] = IconOutput(
-      relativePath: relativePath,
-      width: size.width,
-      height: size.height,
-      layer: layer,
-    );
+  // 處理掃描到的啟動畫面檔案
+  for (final sf in scanResult.splash) {
+    _updateOutputFromScanned(outputMap, sf, projectPath, platform, true);
   }
 
   return outputMap.values.toList();
+}
+
+/// 根據單一掃描到的檔案更新輸出清單中的項目。
+void _updateOutputFromScanned(
+  Map<String, IconOutput> outputMap,
+  ScannedFile sf,
+  String projectPath,
+  String platform,
+  bool isSplash,
+) {
+  final relativePath = p.relative(sf.file.path, from: projectPath);
+
+  // 動態偵測目標尺寸
+  ({int width, int height})? size;
+  final detected = detectTargetSize(sf.file.path, platform);
+  if (detected != null) {
+    size = detected;
+  } else {
+    // 無法從檔名/路徑偵測，讀取原始圖片尺寸
+    final imgSize = _getFileImageSize(sf.file.path);
+    if (imgSize != null) {
+      size = imgSize;
+    }
+  }
+
+  if (size == null) return; // 無法取得尺寸則略過
+
+  // 決定圖層類型
+  final layer = _tagToLayer(sf.tag);
+
+  // 更新或新增輸出（以相對路徑去重）
+  outputMap[relativePath] = IconOutput(
+    relativePath: relativePath,
+    width: size.width,
+    height: size.height,
+    layer: layer,
+    isSplash: isSplash,
+  );
 }
 
 /// 將掃描器的標籤轉換為 [ImageLayer] 列舉值。
@@ -174,15 +200,16 @@ Future<bool> _generarYGuardar(
   String projectPath,
   AppStrings s, {
   bool whiteBase = false,
+  double? radio,
 }) async {
   // 根據圖層類型決定需要哪些來源圖片
   // 合併圖層只需至少一張圖片即可，前景/背景圖層則嚴格要求對應圖片
   if (output.layer == ImageLayer.foreground && fgImage == null) {
-    print('  ${s.skippingLayerFg(output.relativePath)}');
+    print('  ${s.skippingLayerFg(normalizarRuta(output.relativePath))}');
     return false;
   }
   if (output.layer == ImageLayer.background && bgImage == null) {
-    print('  ${s.skippingLayerBg(output.relativePath)}');
+    print('  ${s.skippingLayerBg(normalizarRuta(output.relativePath))}');
     return false;
   }
   // 合併圖層：若兩張都沒有則略過
@@ -204,20 +231,38 @@ Future<bool> _generarYGuardar(
       );
   }
 
+  // 套用圓角（若有指定）
+  final img.Image finalImage = _aplicarBordeRedondo(generated, radio);
+
   // 寫入檔案
   final filePath = p.join(projectPath, output.relativePath);
   try {
+    // 偵測舊檔案大小（若存在）
+    final oldFile = File(filePath);
+    final oldSize = oldFile.existsSync() ? oldFile.lengthSync() : null;
+
     final dir = Directory(p.dirname(filePath));
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
-    await File(filePath).writeAsBytes(img.encodePng(generated));
-    print(s.generandoIcono(
-      output.relativePath, output.width, output.height,
+    await File(filePath).writeAsBytes(img.encodePng(finalImage));
+
+    // 新檔案大小
+    final newSize = File(filePath).lengthSync();
+
+    // 圖層類型顯示文字
+    final tipo = _layerTypeString(output.layer, whiteBase, s);
+
+    // 舊檔案大小顯示：若有舊檔案則顯示大小，否則顯示「新檔案」標籤
+    final oldSizeStr = oldSize != null ? _formatSize(oldSize) : s.newFileLabel;
+
+    print(s.generandoIconoDetalle(
+      normalizarRuta(output.relativePath), output.width, output.height,
+      tipo, oldSizeStr, _formatSize(newSize),
     ));
     return true;
   } catch (e) {
-    print(s.writeError(filePath, e.toString()));
+    print(s.writeError(normalizarRuta(filePath), e.toString()));
     return false;
   }
 }
@@ -233,6 +278,7 @@ Future<bool> _generarIco(
   String projectPath,
   AppStrings s, {
   bool whiteBase = false,
+  double? radius,
 }) async {
   if (fgImage == null && bgImage == null) return false;
 
@@ -258,7 +304,10 @@ Future<bool> _generarIco(
         sized = _estirar(bgImage!, spec.width, spec.height);
       }
     }
-    icoImages.add(sized);
+
+    // 套用圓角（若有指定，對每個 ICO 尺寸獨立計算）
+    final radioForSize = _calcularRadio(radius, spec.width, spec.height);
+    icoImages.add(_aplicarBordeRedondo(sized, radioForSize));
   }
 
   // 使用 IcoEncoder 將多個尺寸合併為一個 ICO 檔案
@@ -267,15 +316,27 @@ Future<bool> _generarIco(
 
   final filePath = p.join(projectPath, icoPath);
   try {
+    // 偵測舊檔案大小（若存在）
+    final oldFile = File(filePath);
+    final oldSize = oldFile.existsSync() ? oldFile.lengthSync() : null;
+
     final dir = Directory(p.dirname(filePath));
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
     await File(filePath).writeAsBytes(icoBytes);
-    print(s.generandoIco(icoPath));
+
+    // 新檔案大小
+    final newSize = File(filePath).lengthSync();
+
+    // ICO 的圖層類型（取第一個規格的類型，所有 ICO 尺寸使用相同的 whiteBase/layer）
+    final tipo = _layerTypeString(icoSpecs.first.layer, whiteBase, s);
+    final oldSizeStr = oldSize != null ? _formatSize(oldSize) : s.newFileLabel;
+
+    print(s.generandoIcoDetalle(normalizarRuta(icoPath), tipo, oldSizeStr, _formatSize(newSize)));
     return true;
   } catch (e) {
-    print(s.writeError(filePath, e.toString()));
+    print(s.writeError(normalizarRuta(filePath), e.toString()));
     return false;
   }
 }
@@ -402,4 +463,113 @@ double _calcularEscala(int srcW, int srcH, int targetW, int targetH) {
   final wRatio = targetW / srcW;
   final hRatio = targetH / srcH;
   return wRatio < hRatio ? wRatio : hRatio;
+}
+
+/// iOS 圖示圓角比例常數（約 22.37%）。
+const _iosCornerRadiusRatio = 0.2237;
+
+/// 根據使用者指定的圓角值與目標尺寸計算實際圓角半徑。
+///
+/// [userRadius] 為使用者透過 -r 指定的像素值，null 表示自動計算。
+/// [w] 與 [h] 為目標圖示的寬高。
+///
+/// 自動計算模式使用 iOS 圓角比例計算：[min(w, h) * 0.2237]。
+/// 若計算結果為 0 或不需套用則回傳 null。
+double? _calcularRadio(double? userRadius, int w, int h) {
+  if (userRadius != null) {
+    // 使用者指定了圓角值，直接使用（即使為 0 也套用）
+    if (userRadius <= 0) return null;
+    return userRadius;
+  }
+
+  // 自動計算模式：使用 iOS 圓角比例
+  final r = (w < h ? w : h) * _iosCornerRadiusRatio;
+  if (r < 1.0) return null; // 圓角太小則不套用
+
+  return r;
+}
+
+/// 對圖片套用圓角裁剪。
+///
+/// [src] 為原始圖片。
+/// [radio] 為圓角半徑（像素），若為 null 則直接回傳原圖。
+/// 回傳圓角裁剪後的新圖片（圓角外區域為透明）。
+img.Image _aplicarBordeRedondo(img.Image src, double? radio) {
+  if (radio == null || radio <= 0) return src;
+
+  final w = src.width;
+  final h = src.height;
+
+  // 確保半徑不超過圖片最短邊的一半
+  final limite = (w < h ? w : h) / 2;
+  final r = radio > limite ? limite : radio;
+
+  // 建立帶 alpha 通道的輸出畫布
+  final result = img.Image(width: w, height: h, numChannels: 4);
+
+  // 逐像素檢查是否位於圓角矩形內部
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      if (_isInsideRoundedRect(x, y, w, h, r)) {
+        final pixel = src.getPixel(x, y);
+        result.setPixelRgba(x, y, pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt(), pixel.a.toInt());
+      }
+      // 圓角外部保持透明（預設即為透明）
+    }
+  }
+
+  return result;
+}
+
+/// 判斷像素 (x, y) 是否在圓角矩形內部。
+///
+/// 四個角落為四分之一圓弧切割，圓心位於角落內側 [r] 像素處。
+bool _isInsideRoundedRect(int x, int y, int w, int h, double r) {
+  // 左上角
+  if (x < r && y < r) {
+    final dx = r - x;
+    final dy = r - y;
+    if (dx * dx + dy * dy > r * r) return false;
+  }
+  // 右上角
+  if (x >= w - r && y < r) {
+    final dx = x - (w - 1 - r);
+    final dy = r - y;
+    if (dx * dx + dy * dy > r * r) return false;
+  }
+  // 左下角
+  if (x < r && y >= h - r) {
+    final dx = r - x;
+    final dy = y - (h - 1 - r);
+    if (dx * dx + dy * dy > r * r) return false;
+  }
+  // 右下角
+  if (x >= w - r && y >= h - r) {
+    final dx = x - (w - 1 - r);
+    final dy = y - (h - 1 - r);
+    if (dx * dx + dy * dy > r * r) return false;
+  }
+  return true;
+}
+
+/// 格式化位元組大小為人類可讀字串（B／KB／MB）。
+String _formatSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+/// 根據圖層類型與 whiteBase 旗標回傳對應的圖層類型顯示字串。
+String _layerTypeString(ImageLayer layer, bool whiteBase, AppStrings s) {
+  if (whiteBase && layer == ImageLayer.merged) {
+    return s.layerTypeWhiteBase;
+  }
+  switch (layer) {
+    case ImageLayer.foreground:
+      return s.layerTypeForeground;
+    case ImageLayer.background:
+      return s.layerTypeBackground;
+    case ImageLayer.merged:
+      return s.layerTypeMerged;
+  }
 }

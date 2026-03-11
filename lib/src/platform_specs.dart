@@ -26,11 +26,15 @@ class IconOutput {
   /// 此輸出應包含的圖層類型。
   final ImageLayer layer;
 
+  /// 是否為啟動圖片（啟動畫面不套用圓角）。
+  final bool isSplash;
+
   const IconOutput({
     required this.relativePath,
     required this.width,
     required this.height,
     required this.layer,
+    this.isSplash = false,
   });
 }
 
@@ -128,6 +132,7 @@ PlatformSpec _buildAndroidSpec() {
       width: _dp(_adaptiveIconBase, d.factor),
       height: _dp(_adaptiveIconBase, d.factor),
       layer: ImageLayer.merged,
+      isSplash: true,
     ));
   }
 
@@ -179,9 +184,9 @@ PlatformSpec _buildIosSpec() {
     'ios', 'Runner', 'Assets.xcassets', 'LaunchImage.imageset',
   );
   final splashOutputs = <IconOutput>[
-    IconOutput(relativePath: p.join(splashBase, 'LaunchImage.png'), width: 375, height: 812, layer: ImageLayer.merged),
-    IconOutput(relativePath: p.join(splashBase, 'LaunchImage@2x.png'), width: 750, height: 1624, layer: ImageLayer.merged),
-    IconOutput(relativePath: p.join(splashBase, 'LaunchImage@3x.png'), width: 1125, height: 2436, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join(splashBase, 'LaunchImage.png'), width: 375, height: 812, layer: ImageLayer.merged, isSplash: true),
+    IconOutput(relativePath: p.join(splashBase, 'LaunchImage@2x.png'), width: 750, height: 1624, layer: ImageLayer.merged, isSplash: true),
+    IconOutput(relativePath: p.join(splashBase, 'LaunchImage@3x.png'), width: 1125, height: 2436, layer: ImageLayer.merged, isSplash: true),
   ];
 
   return PlatformSpec(
@@ -198,11 +203,11 @@ PlatformSpec _buildIosSpec() {
 
 PlatformSpec _buildWebSpec() {
   final iconOutputs = <IconOutput>[
-    const IconOutput(relativePath: 'web/favicon.png', width: 64, height: 64, layer: ImageLayer.merged),
-    const IconOutput(relativePath: 'web/icons/Icon-192.png', width: 192, height: 192, layer: ImageLayer.merged),
-    const IconOutput(relativePath: 'web/icons/Icon-512.png', width: 512, height: 512, layer: ImageLayer.merged),
-    const IconOutput(relativePath: 'web/icons/Icon-maskable-192.png', width: 192, height: 192, layer: ImageLayer.merged),
-    const IconOutput(relativePath: 'web/icons/Icon-maskable-512.png', width: 512, height: 512, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join('web', 'favicon.png'), width: 64, height: 64, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join('web', 'icons', 'Icon-192.png'), width: 192, height: 192, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join('web', 'icons', 'Icon-512.png'), width: 512, height: 512, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join('web', 'icons', 'Icon-maskable-192.png'), width: 192, height: 192, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join('web', 'icons', 'Icon-maskable-512.png'), width: 512, height: 512, layer: ImageLayer.merged),
   ];
 
   return PlatformSpec(
@@ -276,9 +281,9 @@ PlatformSpec _buildMacosSpec() {
 
 PlatformSpec _buildLinuxSpec() {
   final iconOutputs = <IconOutput>[
-    const IconOutput(relativePath: 'linux/snap/gui/icon.png', width: 256, height: 256, layer: ImageLayer.merged),
-    const IconOutput(relativePath: 'linux/snap/gui/snap-icon.png', width: 256, height: 256, layer: ImageLayer.merged),
-    const IconOutput(relativePath: 'linux/flatpak/icon.png', width: 256, height: 256, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join('linux', 'snap', 'gui', 'icon.png'), width: 256, height: 256, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join('linux', 'snap', 'gui', 'snap-icon.png'), width: 256, height: 256, layer: ImageLayer.merged),
+    IconOutput(relativePath: p.join('linux', 'flatpak', 'icon.png'), width: 256, height: 256, layer: ImageLayer.merged),
   ];
 
   return PlatformSpec(

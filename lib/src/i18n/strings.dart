@@ -34,6 +34,12 @@ class AppStrings {
   String get restoreNoFiles => _get(_restoreNoFiles);
   String get decodeImageFailedPrefix => _get(_decodeImageFailedPrefix);
 
+  String get layerTypeForeground => _get(_layerTypeForeground);
+  String get layerTypeBackground => _get(_layerTypeBackground);
+  String get layerTypeMerged => _get(_layerTypeMerged);
+  String get layerTypeWhiteBase => _get(_layerTypeWhiteBase);
+  String get newFileLabel => _get(_newFileLabel);
+
   String parsePubspecError(Object error) =>
       _get(_parsePubspecError).replaceAll('{error}', error.toString());
 
@@ -98,8 +104,24 @@ class AppStrings {
           .replaceAll('{width}', width.toString())
           .replaceAll('{height}', height.toString());
 
+  String generandoIconoDetalle(String path, int width, int height, String type, String oldSize, String newSize) =>
+      _get(_generandoIconoDetalle)
+          .replaceAll('{path}', path)
+          .replaceAll('{width}', width.toString())
+          .replaceAll('{height}', height.toString())
+          .replaceAll('{type}', type)
+          .replaceAll('{oldSize}', oldSize)
+          .replaceAll('{newSize}', newSize);
+
   String generandoIco(String path) =>
       _get(_generandoIco).replaceAll('{path}', path);
+
+  String generandoIcoDetalle(String path, String type, String oldSize, String newSize) =>
+      _get(_generandoIcoDetalle)
+          .replaceAll('{path}', path)
+          .replaceAll('{type}', type)
+          .replaceAll('{oldSize}', oldSize)
+          .replaceAll('{newSize}', newSize);
 
   String generacionCompletada(int count) =>
       _get(_generacionCompletada).replaceAll('{count}', count.toString());
@@ -406,4 +428,53 @@ const _writeError = {
   SupportedLocale.zhTW: '寫入檔案失敗: {path}: {error}',
   SupportedLocale.en: 'Failed to write file: {path}: {error}',
   SupportedLocale.ja: 'ファイル書き込み失敗: {path}: {error}',
+};
+
+const _layerTypeForeground = {
+  SupportedLocale.zhCN: '前景',
+  SupportedLocale.zhTW: '前景',
+  SupportedLocale.en: 'Foreground',
+  SupportedLocale.ja: '前景',
+};
+
+const _layerTypeBackground = {
+  SupportedLocale.zhCN: '背景',
+  SupportedLocale.zhTW: '背景',
+  SupportedLocale.en: 'Background',
+  SupportedLocale.ja: '背景',
+};
+
+const _layerTypeMerged = {
+  SupportedLocale.zhCN: '合并',
+  SupportedLocale.zhTW: '合併',
+  SupportedLocale.en: 'Merged',
+  SupportedLocale.ja: '統合',
+};
+
+const _layerTypeWhiteBase = {
+  SupportedLocale.zhCN: '不透明白底',
+  SupportedLocale.zhTW: '不透明白底',
+  SupportedLocale.en: 'Opaque white',
+  SupportedLocale.ja: '不透明白背景',
+};
+
+const _newFileLabel = {
+  SupportedLocale.zhCN: '新文件',
+  SupportedLocale.zhTW: '新檔案',
+  SupportedLocale.en: 'New',
+  SupportedLocale.ja: '新規',
+};
+
+const _generandoIconoDetalle = {
+  SupportedLocale.zhCN: '  生成: {path} ({width}x{height}) [{type}] {oldSize} → {newSize}',
+  SupportedLocale.zhTW: '  生成: {path} ({width}x{height}) [{type}] {oldSize} → {newSize}',
+  SupportedLocale.en: '  Generated: {path} ({width}x{height}) [{type}] {oldSize} → {newSize}',
+  SupportedLocale.ja: '  生成: {path} ({width}x{height}) [{type}] {oldSize} → {newSize}',
+};
+
+const _generandoIcoDetalle = {
+  SupportedLocale.zhCN: '  生成 ICO: {path} [{type}] {oldSize} → {newSize}',
+  SupportedLocale.zhTW: '  生成 ICO: {path} [{type}] {oldSize} → {newSize}',
+  SupportedLocale.en: '  Generated ICO: {path} [{type}] {oldSize} → {newSize}',
+  SupportedLocale.ja: '  ICO を生成: {path} [{type}] {oldSize} → {newSize}',
 };
