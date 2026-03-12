@@ -67,10 +67,19 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
           ? _calcularRadio(args.radius, output.width, output.height)
           : null;
 
+      // 計算前景邊距：僅合併圖層且（有背景圖或白底）時套用
+      // 獨立前景圖層（如 Android 自適應前景）不套用邊距
+      final minDim = output.width < output.height ? output.width : output.height;
+      final margin = (output.layer == ImageLayer.merged &&
+              (bgImage != null || spec.requiresOpaqueIcons))
+          ? _calcularMargen(args, minDim)
+          : 0.0;
+
       final generated = await _generarYGuardar(
         output, fgImage, bgImage, args.flutterProjectPath, s,
         whiteBase: spec.requiresOpaqueIcons,
         radio: radio,
+        margin: margin,
       );
       if (generated) totalGenerated++;
     }
@@ -83,6 +92,8 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
         args.flutterProjectPath, s,
         whiteBase: spec.requiresOpaqueIcons,
         radius: args.radius,
+        marginValue: args.marginValue,
+        marginIsPercent: args.marginIsPercent,
       );
       if (generated) totalGenerated++;
     }
@@ -201,6 +212,7 @@ Future<bool> _generarYGuardar(
   AppStrings s, {
   bool whiteBase = false,
   double? radio,
+  double margin = 0,
 }) async {
   // 根據圖層類型決定需要哪些來源圖片
   // 合併圖層只需至少一張圖片即可，前景/背景圖層則嚴格要求對應圖片
@@ -221,13 +233,14 @@ Future<bool> _generarYGuardar(
   final img.Image generated;
   switch (output.layer) {
     case ImageLayer.foreground:
-      generated = _escalarProporcional(fgImage!, output.width, output.height);
+      generated = _escalarProporcional(fgImage!, output.width, output.height, margin: margin);
     case ImageLayer.background:
       generated = _estirar(bgImage!, output.width, output.height);
     case ImageLayer.merged:
       generated = _fusionar(
         fgImage, bgImage, output.width, output.height,
         whiteBase: whiteBase,
+        margin: margin,
       );
   }
 
@@ -279,22 +292,33 @@ Future<bool> _generarIco(
   AppStrings s, {
   bool whiteBase = false,
   double? radius,
+  double? marginValue,
+  bool marginIsPercent = false,
 }) async {
   if (fgImage == null && bgImage == null) return false;
 
   final icoImages = <img.Image>[];
 
   for (final spec in icoSpecs) {
+    // 為每個 ICO 尺寸獨立計算圓角及邊距
+    final radioForSize = _calcularRadio(radius, spec.width, spec.height);
+    final minDim = spec.width < spec.height ? spec.width : spec.height;
+    // 邊距僅在有背景圖或白底時套用，純透明背景不套用
+    final marginForSize = (bgImage != null || whiteBase)
+        ? _calcularMargenRaw(marginValue, marginIsPercent, minDim)
+        : 0.0;
+
     final img.Image sized;
     if (fgImage != null && bgImage != null) {
       sized = _fusionar(fgImage, bgImage, spec.width, spec.height,
-          whiteBase: whiteBase);
+          whiteBase: whiteBase, margin: marginForSize);
     } else if (fgImage != null) {
       if (whiteBase) {
         sized = _fusionar(fgImage, null, spec.width, spec.height,
-            whiteBase: true);
+            whiteBase: true, margin: marginForSize);
       } else {
-        sized = _escalarProporcional(fgImage, spec.width, spec.height);
+        sized = _escalarProporcional(fgImage, spec.width, spec.height,
+            margin: marginForSize);
       }
     } else {
       if (whiteBase) {
@@ -305,8 +329,6 @@ Future<bool> _generarIco(
       }
     }
 
-    // 套用圓角（若有指定，對每個 ICO 尺寸獨立計算）
-    final radioForSize = _calcularRadio(radius, spec.width, spec.height);
     icoImages.add(_aplicarBordeRedondo(sized, radioForSize));
   }
 
@@ -343,8 +365,13 @@ Future<bool> _generarIco(
 
 /// 將前景圖按比例縮放，使其剛好容納在目標尺寸內（保持寬高比）。
 ///
+/// [margin] 為前景距邊緣的最小距離（像素），預設 0 表示填滿。
 /// 多餘空間為透明，圖片置中於目標畫布中。
-img.Image _escalarProporcional(img.Image src, int targetW, int targetH) {
+img.Image _escalarProporcional(img.Image src, int targetW, int targetH, {double margin = 0}) {
+  // 計算有效區域（扣除雙倍邊距），至少保留 1 像素
+  final effectiveW = (targetW - 2 * margin).round().clamp(1, targetW);
+  final effectiveH = (targetH - 2 * margin).round().clamp(1, targetH);
+
   // 建立帶有 alpha 通道的畫布（numChannels: 4 = RGBA）
   final canvas = img.Image(
     width: targetW,
@@ -355,8 +382,8 @@ img.Image _escalarProporcional(img.Image src, int targetW, int targetH) {
   // 以透明色填滿整個畫布，確保多餘區域為透明而非黑色
   img.fill(canvas, color: img.ColorRgba8(0, 0, 0, 0));
 
-  // 計算縮放比例，使圖片剛好容納在目標尺寸內
-  final scale = _calcularEscala(src.width, src.height, targetW, targetH);
+  // 在有效區域內計算縮放比例，使圖片剛好容納
+  final scale = _calcularEscala(src.width, src.height, effectiveW, effectiveH);
   final scaledW = (src.width * scale).round();
   final scaledH = (src.height * scale).round();
 
@@ -398,6 +425,7 @@ img.Image _fusionar(
   int targetW,
   int targetH, {
   bool whiteBase = false,
+  double margin = 0,
 }) {
   // 需要白色底色的情況：建立白色畫布作為基底
   img.Image result;
@@ -419,39 +447,27 @@ img.Image _fusionar(
     img.fill(result, color: img.ColorRgba8(0, 0, 0, 0));
   }
 
-  // 僅有前景：縮放後居中合成到基底上
+  // 僅有前景：縮放後居中合成到基底上（套用邊距）
   if (fgSrc != null && bgSrc == null) {
-    final fgSized = _escalarProporcional(fgSrc, targetW, targetH);
+    final fgSized = _escalarProporcional(fgSrc, targetW, targetH, margin: margin);
     img.compositeImage(result, fgSized);
     return result;
   }
 
-  // 僅有背景：拉伸後合成到基底上
+  // 僅有背景：拉伸後合成到基底上（邊距不影響背景）
   if (fgSrc == null && bgSrc != null) {
     final bgStretched = _estirar(bgSrc, targetW, targetH);
     img.compositeImage(result, bgStretched);
     return result;
   }
 
-  // 兩者皆有：先合成拉伸後的背景，再合成前景
+  // 兩者皆有：先合成拉伸後的背景，再合成前景（套用邊距）
   final bgStretched = _estirar(bgSrc!, targetW, targetH);
   img.compositeImage(result, bgStretched);
 
-  // 計算前景縮放比例，使其容納在目標尺寸內
-  final scale = _calcularEscala(fgSrc!.width, fgSrc.height, targetW, targetH);
-  final fgW = (fgSrc.width * scale).round();
-  final fgH = (fgSrc.height * scale).round();
-
-  // 縮放前景圖並居中合成
-  final fgScaled = img.copyResize(
-    fgSrc,
-    width: fgW,
-    height: fgH,
-    interpolation: img.Interpolation.cubic,
-  );
-  final offsetX = ((targetW - fgW) / 2).round();
-  final offsetY = ((targetH - fgH) / 2).round();
-  img.compositeImage(result, fgScaled, dstX: offsetX, dstY: offsetY);
+  // 使用 _escalarProporcional 統一處理前景縮放與邊距
+  final fgSized = _escalarProporcional(fgSrc!, targetW, targetH, margin: margin);
+  img.compositeImage(result, fgSized);
 
   return result;
 }
@@ -572,4 +588,33 @@ String _layerTypeString(ImageLayer layer, bool whiteBase, AppStrings s) {
     case ImageLayer.merged:
       return s.layerTypeMerged;
   }
+}
+
+/// 預設前景邊距比例（10%）。
+const _defaultMarginRatio = 0.10;
+
+/// 根據命令列參數與圖示最小邊長計算前景邊距像素值。
+///
+/// [args] 為命令列參數，[minDim] 為圖示的 min(寬, 高)。
+/// 未指定 -m 時預設為 minDim 的 10%。
+double _calcularMargen(CliArgs args, int minDim) {
+  if (args.marginValue == null) {
+    // 預設 10%
+    return minDim * _defaultMarginRatio;
+  }
+  if (args.marginIsPercent) {
+    return minDim * args.marginValue! / 100.0;
+  }
+  return args.marginValue!;
+}
+
+/// 根據原始邊距設定值與圖示最小邊長計算邊距像素值。
+///
+/// [value] 為邊距數值（像素或百分比數值），null 表示使用預設 10%。
+/// [isPercent] 指示是否為百分比模式。
+/// [minDim] 為圖示的 min(寬, 高)。
+double _calcularMargenRaw(double? value, bool isPercent, int minDim) {
+  if (value == null) return minDim * _defaultMarginRatio;
+  if (isPercent) return minDim * value / 100.0;
+  return value;
 }

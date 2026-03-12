@@ -15,6 +15,10 @@ class CliArgs {
   final SupportedLocale locale;
   /// 圖示圓角半徑（像素），null 表示根據 iOS 圓角比例自動計算。
   final double? radius;
+  /// 前景圖邊距值（像素或百分比數值），null 表示使用預設值（10%）。
+  final double? marginValue;
+  /// 邊距是否為百分比模式。
+  final bool marginIsPercent;
 
   CliArgs({
     required this.flutterProjectPath,
@@ -26,6 +30,8 @@ class CliArgs {
     this.backupPath,
     this.restorePath,
     this.radius,
+    this.marginValue,
+    this.marginIsPercent = false,
   });
 }
 
@@ -136,6 +142,12 @@ ArgParser buildArgParser(SupportedLocale defaultLocale) {
       abbr: 'r',
       help: '图标圆角半径（像素），默认根据 iOS 圆角比例自动计算。仅对 iOS 以外的平台图标生效，启动画面不受影响',
       valueHelp: 'radius',
+    )
+    ..addOption(
+      'm',
+      abbr: 'm',
+      help: '前景图距边缘的边距，支持像素（如 10）或百分比（如 10%），默认 10%',
+      valueHelp: 'margin',
     );
   return parser;
 }
@@ -186,6 +198,35 @@ CliArgs parseArgs(List<String> arguments) {
     radius = parsed;
   }
 
+  // 解析邊距參數（選用，支援像素值如「10」或百分比如「10%」）
+  double? marginValue;
+  var marginIsPercent = false;
+  final marginRaw = results['m'] as String?;
+  if (marginRaw != null) {
+    final trimmed = marginRaw.trim();
+    if (trimmed.endsWith('%')) {
+      final numStr = trimmed.substring(0, trimmed.length - 1);
+      final parsed = double.tryParse(numStr);
+      if (parsed == null) {
+        throw FormatException('边距百分比无效: $marginRaw');
+      }
+      if (parsed < 0 || parsed > 100) {
+        throw FormatException('边距百分比须在 0-100 之间: $marginRaw');
+      }
+      marginValue = parsed;
+      marginIsPercent = true;
+    } else {
+      final parsed = double.tryParse(trimmed);
+      if (parsed == null) {
+        throw FormatException('边距参数无效，必须为数字或百分比（如 10 或 10%）: $marginRaw');
+      }
+      if (parsed < 0) {
+        throw FormatException('边距不能为负数: $marginRaw');
+      }
+      marginValue = parsed;
+    }
+  }
+
   return CliArgs(
     flutterProjectPath: flutterPath,
     platforms: platforms,
@@ -196,5 +237,7 @@ CliArgs parseArgs(List<String> arguments) {
     backupPath: backupPath,
     restorePath: restorePath,
     radius: radius,
+    marginValue: marginValue,
+    marginIsPercent: marginIsPercent,
   );
 }
