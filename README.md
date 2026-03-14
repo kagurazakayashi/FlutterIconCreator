@@ -17,6 +17,31 @@ Supports six major platforms — **Android**, **iOS**, **Web**, **Windows**, **m
 - **Backup & restore** — Backup all existing icons and restore them in full
 - **Multi-language** — Supports 简体中文, 繁體中文, English, 日本語
 
+## Reducing Repository Size
+
+This tool generates **50+ icon files** across all platforms — you don't need to commit those generated files to Git. Just commit your **1-2 source images** (foreground/background) and regenerate icons whenever needed.
+
+To prevent generated icons from being committed, add the following lines to your Flutter project's `.gitignore`:
+
+```gitignore
+### Icon Images ###
+# Ignore generated icon/launcher image files within platform directories
+android/**/*[Ii]con*.png
+android/**/ic_launcher*.png
+android/**/launch_background.png
+ios/**/*[Ii]con*.png
+ios/**/LaunchImage*.png
+macos/**/*[Ii]con*.png
+macos/**/*[Ii]con*.icns
+web/**/*[Ii]con*.png
+windows/**/*[Ii]con*.png
+windows/**/*[Ii]con*.ico
+ico/backup
+### End of Icon Images ###
+```
+
+This keeps your repository lean — only source images and the tool are tracked, while platform-specific icon files are regenerated on demand.
+
 ## Requirements
 
 - [Dart SDK](https://dart.dev/get-dart) **3.0.0** or higher

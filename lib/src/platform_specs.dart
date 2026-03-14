@@ -53,6 +53,11 @@ class PlatformSpec {
   /// Map key 為 ICO 輸出檔案路徑，value 為多個尺寸規格清單。
   final Map<String, List<IconOutput>> icoOutputs;
 
+  /// ICNS 多尺寸輸出：將多個尺寸合併為一個 .icns 檔案。
+  ///
+  /// Map key 為 ICNS 輸出檔案路徑，value 為多個尺寸規格清單。
+  final Map<String, List<IconOutput>> icnsOutputs;
+
   /// 是否需要不透明底色（如 iOS App Icon 不允許透明區域）。
   final bool requiresOpaqueIcons;
 
@@ -61,6 +66,7 @@ class PlatformSpec {
     this.iconOutputs = const [],
     this.splashOutputs = const [],
     this.icoOutputs = const {},
+    this.icnsOutputs = const {},
     this.requiresOpaqueIcons = false,
   });
 }
@@ -221,9 +227,9 @@ PlatformSpec _buildWebSpec() {
 // ──────────────────────────────────────────────────────────────
 
 PlatformSpec _buildWindowsSpec() {
-  // Windows 使用多尺寸 ICO 檔案，所有尺寸合併為單一檔案
+  // Windows 使用多尺寸 ICO 檔案，所有標準尺寸合併為單一檔案
   final icoPath = p.join('windows', 'runner', 'resources', 'app_icon.ico');
-  final icoSizes = const [16, 24, 32, 48, 64, 128, 256];
+  const icoSizes = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256];
 
   final icoOutputs = <String, List<IconOutput>>{
     icoPath: icoSizes.map((size) => IconOutput(
@@ -269,9 +275,22 @@ PlatformSpec _buildMacosSpec() {
     layer: o.layer,
   )).toList();
 
+  // macOS ICNS 多尺寸圖示，包含所有標準尺寸
+  final icnsPath = p.join('macos', 'Runner', 'app_icon.icns');
+  const icnsSizes = [16, 32, 64, 128, 256, 512, 1024];
+  final icnsOutputs = <String, List<IconOutput>>{
+    icnsPath: icnsSizes.map((size) => IconOutput(
+      relativePath: icnsPath,
+      width: size,
+      height: size,
+      layer: ImageLayer.merged,
+    )).toList(),
+  };
+
   return PlatformSpec(
     name: 'macos',
     iconOutputs: fullIconOutputs,
+    icnsOutputs: icnsOutputs,
   );
 }
 

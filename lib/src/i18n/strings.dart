@@ -123,6 +123,16 @@ class AppStrings {
           .replaceAll('{oldSize}', oldSize)
           .replaceAll('{newSize}', newSize);
 
+  String generandoIcns(String path) =>
+      _get(_generandoIcns).replaceAll('{path}', path);
+
+  String generandoIcnsDetalle(String path, String type, String oldSize, String newSize) =>
+      _get(_generandoIcnsDetalle)
+          .replaceAll('{path}', path)
+          .replaceAll('{type}', type)
+          .replaceAll('{oldSize}', oldSize)
+          .replaceAll('{newSize}', newSize);
+
   String generacionCompletada(int count) =>
       _get(_generacionCompletada).replaceAll('{count}', count.toString());
 
@@ -477,4 +487,18 @@ const _generandoIcoDetalle = {
   SupportedLocale.zhTW: '  生成 ICO: {path} [{type}] {oldSize} → {newSize}',
   SupportedLocale.en: '  Generated ICO: {path} [{type}] {oldSize} → {newSize}',
   SupportedLocale.ja: '  ICO を生成: {path} [{type}] {oldSize} → {newSize}',
+};
+
+const _generandoIcns = {
+  SupportedLocale.zhCN: '  生成 ICNS: {path}',
+  SupportedLocale.zhTW: '  生成 ICNS: {path}',
+  SupportedLocale.en: '  Generated ICNS: {path}',
+  SupportedLocale.ja: '  ICNS を生成: {path}',
+};
+
+const _generandoIcnsDetalle = {
+  SupportedLocale.zhCN: '  生成 ICNS: {path} [{type}] {oldSize} → {newSize}',
+  SupportedLocale.zhTW: '  生成 ICNS: {path} [{type}] {oldSize} → {newSize}',
+  SupportedLocale.en: '  Generated ICNS: {path} [{type}] {oldSize} → {newSize}',
+  SupportedLocale.ja: '  ICNS を生成: {path} [{type}] {oldSize} → {newSize}',
 };

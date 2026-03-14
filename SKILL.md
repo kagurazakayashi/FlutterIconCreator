@@ -219,6 +219,31 @@ The tool uses the Dart `image` package and supports input formats: PNG, JPEG, We
 
 5. **Validation**: The tool validates that the given path is a Flutter project (checks for `pubspec.yaml` with Flutter dependency). Warnings are shown if no source image is provided in generate mode.
 
+## Keeping Your Repository Lean
+
+This tool generates 50+ icon files across all platforms. To avoid bloating the repository, only commit the source images (1-2 files) and let the tool regenerate platform icons on demand.
+
+Add these lines to the Flutter project's `.gitignore` to exclude generated icons:
+
+```gitignore
+### Icon Images ###
+# Ignore generated icon/launcher image files within platform directories
+android/**/*[Ii]con*.png
+android/**/ic_launcher*.png
+android/**/launch_background.png
+ios/**/*[Ii]con*.png
+ios/**/LaunchImage*.png
+macos/**/*[Ii]con*.png
+macos/**/*[Ii]con*.icns
+web/**/*[Ii]con*.png
+windows/**/*[Ii]con*.png
+windows/**/*[Ii]con*.ico
+ico/backup
+### End of Icon Images ###
+```
+
+If the user's `.gitignore` already exists, insert this block before other platform-specific rules. If no `.gitignore` exists, create one with this content.
+
 ## Troubleshooting
 
 | Problem | Likely Cause | Solution |

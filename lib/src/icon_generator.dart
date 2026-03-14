@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
@@ -97,6 +98,18 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
       );
       if (generated) totalGenerated++;
     }
+
+    // 處理多尺寸 ICNS 輸出
+    for (final entry in spec.icnsOutputs.entries) {
+      final generated = await _generarIcns(
+        entry.key, entry.value, fgImage, bgImage,
+        args.flutterProjectPath, s,
+        radius: args.radius,
+        marginValue: args.marginValue,
+        marginIsPercent: args.marginIsPercent,
+      );
+      if (generated) totalGenerated++;
+    }
   }
 
   print(s.generacionCompletada(totalGenerated));
@@ -147,6 +160,10 @@ void _updateOutputFromScanned(
   bool isSplash,
 ) {
   final relativePath = p.relative(sf.file.path, from: projectPath);
+
+  // 跳過 .ico 與 .icns 檔案，這些格式由專屬編碼器處理，不應建立 PNG 輸出
+  final ext = p.extension(relativePath).toLowerCase();
+  if (ext == '.ico' || ext == '.icns') return;
 
   // 動態偵測目標尺寸
   ({int width, int height})? size;
@@ -280,9 +297,54 @@ Future<bool> _generarYGuardar(
   }
 }
 
-/// 生成多尺寸 ICO 檔案。
+/// 為指定尺寸產生圖層合成後的圖片。
 ///
-/// 將多個不同尺寸的圖片合併為單一 .ico 檔案後寫入磁碟。
+/// 統一的圖片生成邏輯，供 ICO、ICNS 等多格式共用。
+img.Image _generarImagenParaTamanio(
+  int width, int height,
+  img.Image? fgImage, img.Image? bgImage, {
+  bool whiteBase = false,
+  double? radius,
+  double margin = 0,
+}) {
+  final img.Image sized;
+  if (fgImage != null && bgImage != null) {
+    sized = _fusionar(fgImage, bgImage, width, height,
+        whiteBase: whiteBase, margin: margin);
+  } else if (fgImage != null) {
+    if (whiteBase) {
+      sized = _fusionar(fgImage, null, width, height,
+          whiteBase: true, margin: margin);
+    } else {
+      sized = _escalarProporcional(fgImage, width, height, margin: margin);
+    }
+  } else {
+    if (whiteBase) {
+      sized = _fusionar(null, bgImage, width, height, whiteBase: true);
+    } else {
+      sized = _estirar(bgImage!, width, height);
+    }
+  }
+  final radioForSize = _calcularRadio(radius, width, height);
+  return _aplicarBordeRedondo(sized, radioForSize);
+}
+
+/// ICO 條目類型：PNG 格式（32-bit）或 BMP 格式（指定色深）。
+enum _IcoEntryType { png32, bmp8, bmp4 }
+
+/// 單一 ICO 條目的內部表示。
+class _IcoEntry {
+  final int width;
+  final int height;
+  final _IcoEntryType type;
+  final Uint8List data;
+  const _IcoEntry(this.width, this.height, this.type, this.data);
+}
+
+/// 生成多尺寸、多色深的 ICO 檔案。
+///
+/// 包含 Windows 標準所有尺寸（16～256），並且對小尺寸額外
+/// 產生 8-bit（≤48px）與 4-bit（≤32px）色深版本。
 Future<bool> _generarIco(
   String icoPath,
   List<IconOutput> icoSpecs,
@@ -297,48 +359,52 @@ Future<bool> _generarIco(
 }) async {
   if (fgImage == null && bgImage == null) return false;
 
-  final icoImages = <img.Image>[];
+  final entries = <_IcoEntry>[];
+  final generatedImages = <int, img.Image>{};
+
+  // 輔助：取得或生成指定尺寸的合成圖片（含緩存）
+  img.Image _getOrGenerate(int size) {
+    return generatedImages.putIfAbsent(size, () {
+      final minDim = size;
+      final marginForSize = (bgImage != null || whiteBase)
+          ? _calcularMargenRaw(marginValue, marginIsPercent, minDim)
+          : 0.0;
+      return _generarImagenParaTamanio(
+        size, size, fgImage, bgImage,
+        whiteBase: whiteBase, radius: radius, margin: marginForSize,
+      );
+    });
+  }
 
   for (final spec in icoSpecs) {
-    // 為每個 ICO 尺寸獨立計算圓角及邊距
-    final radioForSize = _calcularRadio(radius, spec.width, spec.height);
-    final minDim = spec.width < spec.height ? spec.width : spec.height;
-    // 邊距僅在有背景圖或白底時套用，純透明背景不套用
-    final marginForSize = (bgImage != null || whiteBase)
-        ? _calcularMargenRaw(marginValue, marginIsPercent, minDim)
-        : 0.0;
+    final size = spec.width;
+    final image = _getOrGenerate(size);
 
-    final img.Image sized;
-    if (fgImage != null && bgImage != null) {
-      sized = _fusionar(fgImage, bgImage, spec.width, spec.height,
-          whiteBase: whiteBase, margin: marginForSize);
-    } else if (fgImage != null) {
-      if (whiteBase) {
-        sized = _fusionar(fgImage, null, spec.width, spec.height,
-            whiteBase: true, margin: marginForSize);
-      } else {
-        sized = _escalarProporcional(fgImage, spec.width, spec.height,
-            margin: marginForSize);
-      }
-    } else {
-      if (whiteBase) {
-        sized = _fusionar(null, bgImage, spec.width, spec.height,
-            whiteBase: true);
-      } else {
-        sized = _estirar(bgImage!, spec.width, spec.height);
+    // 32-bit PNG 條目（所有尺寸）
+    entries.add(_IcoEntry(size, size, _IcoEntryType.png32, Uint8List.fromList(img.encodePng(image))));
+
+    // 8-bit BMP 條目（≤48px）
+    if (size <= 48) {
+      final bmp8 = _encodeBmpIcoEntry(image, 8);
+      if (bmp8 != null) {
+        entries.add(_IcoEntry(size, size, _IcoEntryType.bmp8, bmp8));
       }
     }
 
-    icoImages.add(_aplicarBordeRedondo(sized, radioForSize));
+    // 4-bit BMP 條目（≤32px）
+    if (size <= 32) {
+      final bmp4 = _encodeBmpIcoEntry(image, 4);
+      if (bmp4 != null) {
+        entries.add(_IcoEntry(size, size, _IcoEntryType.bmp4, bmp4));
+      }
+    }
   }
 
-  // 使用 IcoEncoder 將多個尺寸合併為一個 ICO 檔案
-  final encoder = img.IcoEncoder();
-  final icoBytes = encoder.encodeImages(icoImages);
+  // 使用自訂編碼器將所有條目寫入 ICO 檔案
+  final icoBytes = _encodeIcoCustom(entries);
 
   final filePath = p.join(projectPath, icoPath);
   try {
-    // 偵測舊檔案大小（若存在）
     final oldFile = File(filePath);
     final oldSize = oldFile.existsSync() ? oldFile.lengthSync() : null;
 
@@ -348,10 +414,7 @@ Future<bool> _generarIco(
     }
     await File(filePath).writeAsBytes(icoBytes);
 
-    // 新檔案大小
     final newSize = File(filePath).lengthSync();
-
-    // ICO 的圖層類型（取第一個規格的類型，所有 ICO 尺寸使用相同的 whiteBase/layer）
     final tipo = _layerTypeString(icoSpecs.first.layer, whiteBase, s);
     final oldSizeStr = oldSize != null ? _formatSize(oldSize) : s.newFileLabel;
 
@@ -362,6 +425,408 @@ Future<bool> _generarIco(
     return false;
   }
 }
+
+/// 自訂 ICO 編碼器：支援混合 PNG（32-bit）與 BMP（8-bit / 4-bit）條目。
+Uint8List _encodeIcoCustom(List<_IcoEntry> entries) {
+  final count = entries.length;
+  // 計算各條目的偏移量
+  final offsets = <int>[];
+  var currentOffset = 6 + 16 * count; // 檔頭 + 目錄
+  for (final entry in entries) {
+    offsets.add(currentOffset);
+    currentOffset += entry.data.length;
+  }
+
+  final buffer = BytesBuilder();
+
+  // ICO 檔頭
+  buffer.add(_uint16LE(0));   // reserved
+  buffer.add(_uint16LE(1));   // type: ICO
+  buffer.add(_uint16LE(count));
+
+  // ICO 目錄條目
+  for (var i = 0; i < count; i++) {
+    final entry = entries[i];
+    final w = entry.width >= 256 ? 0 : entry.width;
+    final h = entry.height >= 256 ? 0 : entry.height;
+    int bpp;
+    int colors;
+    switch (entry.type) {
+      case _IcoEntryType.png32:
+        bpp = 32;
+        colors = 0;
+      case _IcoEntryType.bmp8:
+        bpp = 8;
+        colors = 256;
+      case _IcoEntryType.bmp4:
+        bpp = 4;
+        colors = 16;
+    }
+    buffer.addByte(w & 0xFF);
+    buffer.addByte(h & 0xFF);
+    buffer.addByte(colors & 0xFF);
+    buffer.addByte(0); // reserved
+    buffer.add(_uint16LE(1));   // planes
+    buffer.add(_uint16LE(bpp));
+    buffer.add(_uint32LE(entry.data.length));
+    buffer.add(_uint32LE(offsets[i]));
+  }
+
+  // 條目資料
+  for (final entry in entries) {
+    buffer.add(entry.data);
+  }
+
+  return buffer.takeBytes();
+}
+
+/// 將 RGBA 圖片編碼為 BMP DIB 格式，用於 ICO 內的 BMP 條目。
+///
+/// [bpp] 必須為 4 或 8。包含調色盤、XOR 像素資料與 AND 遮罩。
+Uint8List? _encodeBmpIcoEntry(img.Image image, int bpp) {
+  if (bpp != 4 && bpp != 8) return null;
+  final w = image.width;
+  final h = image.height;
+  if (w < 1 || h < 1) return null;
+  final paletteSize = 1 << bpp; // 16 or 256
+
+  // 建構調色盤：採用頻率最高的 N 色
+  final palette = _buildPalette(image, paletteSize);
+  if (palette.isEmpty) return null;
+
+  // 計算每行位元組數（對齊 4-byte 邊界）
+  final xorRowBytes = ((w * bpp + 31) ~/ 32) * 4;
+  final andRowBytes = ((w + 31) ~/ 32) * 4;
+
+  // BITMAPINFOHEADER: biHeight = h * 2（上半 XOR，下半 AND）
+  final header = BytesBuilder();
+  header.add(_uint32LE(40));        // biSize
+  header.add(_int32LE(w));
+  header.add(_int32LE(h * 2));      // biHeight（含 XOR + AND）
+  header.add(_uint16LE(1));         // biPlanes
+  header.add(_uint16LE(bpp));       // biBitCount
+  header.add(_uint32LE(0));         // biCompression: BI_RGB
+  header.add(_uint32LE(0));         // biSizeImage
+  header.add(_int32LE(0));          // biXPelsPerMeter
+  header.add(_int32LE(0));          // biYPelsPerMeter
+  header.add(_uint32LE(0));         // biClrUsed
+  header.add(_uint32LE(0));         // biClrImportant
+
+  // 調色盤（RGBQUAD: B, G, R, reserved, 各 1 byte）
+  final paletteBytes = BytesBuilder();
+  for (final c in palette) {
+    paletteBytes.addByte(c.b);
+    paletteBytes.addByte(c.g);
+    paletteBytes.addByte(c.r);
+    paletteBytes.addByte(0); // reserved
+  }
+  // 補齊至 paletteSize（不足部分填 0）
+  for (var i = palette.length; i < paletteSize; i++) {
+    paletteBytes.addByte(0);
+    paletteBytes.addByte(0);
+    paletteBytes.addByte(0);
+    paletteBytes.addByte(0);
+  }
+
+  // XOR 像素資料（bottom-up）
+  final xorData = BytesBuilder();
+
+  // 查找表：將每個 RGBX 值對映到最近的調色盤索引
+  final colorToIndex = <int, int>{};
+  for (var i = 0; i < palette.length; i++) {
+    final pc = palette[i];
+    // 組合 r/g/b 為 24-bit key
+    final key = (pc.r << 16) | (pc.g << 8) | pc.b;
+    colorToIndex[key] = i;
+  }
+
+  for (var y = h - 1; y >= 0; y--) {
+    // XOR row
+    final xorRow = BytesBuilder();
+    var bitBuf = 0;
+    var bitCount = 0;
+
+    for (var x = 0; x < w; x++) {
+      final pixel = image.getPixel(x, y);
+      final a = pixel.a.toInt();
+      final r = pixel.r.toInt();
+      final g = pixel.g.toInt();
+      final b = pixel.b.toInt();
+
+      // 完全透明像素：顏色設為黑色，AND 遮罩標記為透明
+      if (a < 128) {
+        final blackIndex = _findNearestPaletteIndex(0, 0, 0, palette);
+        if (bpp == 8) {
+          xorRow.addByte(blackIndex);
+        } else {
+          bitBuf = (bitBuf << 4) | (blackIndex & 0x0F);
+          bitCount += 4;
+          if (bitCount == 8) {
+            xorRow.addByte(bitBuf);
+            bitBuf = 0;
+            bitCount = 0;
+          }
+        }
+      } else {
+        final index = _findNearestPaletteIndex(r, g, b, palette);
+        if (bpp == 8) {
+          xorRow.addByte(index);
+        } else {
+          bitBuf = (bitBuf << 4) | (index & 0x0F);
+          bitCount += 4;
+          if (bitCount == 8) {
+            xorRow.addByte(bitBuf);
+            bitBuf = 0;
+            bitCount = 0;
+          }
+        }
+      }
+    }
+
+    // 刷新 XOR row 剩餘比特
+    if (bpp == 4 && bitCount > 0) {
+      bitBuf <<= (8 - bitCount);
+      xorRow.addByte(bitBuf);
+    }
+
+    // XOR row padding 至 4-byte 對齊
+    var xorRowOut = xorRow.takeBytes();
+    while (xorRowOut.length < xorRowBytes) {
+      xorRowOut = Uint8List.fromList([...xorRowOut, 0]);
+    }
+    xorData.add(xorRowOut);
+  }
+
+  // 使用 _buildAndMask 建立 AND 遮罩
+  final andRows = _buildAndMask(image, w, andRowBytes);
+
+  return Uint8List.fromList([
+    ...header.takeBytes(),
+    ...paletteBytes.takeBytes(),
+    ...xorData.takeBytes(),
+    ...andRows,
+  ]);
+}
+
+/// 建立 AND 遮罩資料（bottom-up，每行對齊 4-byte）。
+Uint8List _buildAndMask(img.Image image, int w, int andRowBytes) {
+  final h = image.height;
+  final andData = BytesBuilder();
+
+  for (var y = h - 1; y >= 0; y--) {
+    final row = BytesBuilder();
+    var bitBuf = 0;
+    var bitCount = 0;
+    for (var x = 0; x < w; x++) {
+      final pixel = image.getPixel(x, y);
+      final a = pixel.a.toInt();
+      // AND mask: 0 = opaque, 1 = transparent
+      bitBuf = (bitBuf << 1) | (a < 128 ? 1 : 0);
+      bitCount++;
+      if (bitCount == 8) {
+        row.addByte(bitBuf);
+        bitBuf = 0;
+        bitCount = 0;
+      }
+    }
+    if (bitCount > 0) {
+      bitBuf <<= (8 - bitCount);
+      row.addByte(bitBuf);
+    }
+    var rowOut = row.takeBytes();
+    while (rowOut.length < andRowBytes) {
+      rowOut = Uint8List.fromList([...rowOut, 0]);
+    }
+    andData.add(rowOut);
+  }
+  return andData.takeBytes();
+}
+
+/// 代表調色盤中的一個 RGB 顏色。
+class _PaletteColor {
+  final int r, g, b;
+  const _PaletteColor(this.r, this.g, this.b);
+}
+
+/// 從圖片中選取最多 [maxColors] 個頻率最高的不透明顏色作為調色盤。
+List<_PaletteColor> _buildPalette(img.Image image, int maxColors) {
+  final histogram = <int, int>{};
+  for (var y = 0; y < image.height; y++) {
+    for (var x = 0; x < image.width; x++) {
+      final pixel = image.getPixel(x, y);
+      if (pixel.a.toInt() < 128) continue; // 跳過透明像素
+      final key = (pixel.r.toInt() << 16) | (pixel.g.toInt() << 8) | pixel.b.toInt();
+      histogram[key] = (histogram[key] ?? 0) + 1;
+    }
+  }
+  if (histogram.isEmpty) {
+    // 全透明圖片：使用純黑單色調色盤
+    return List.generate(maxColors, (i) {
+      final v = (i * 255) ~/ (maxColors - 1 > 0 ? maxColors - 1 : 1);
+      return _PaletteColor(v, v, v);
+    });
+  }
+
+  // 按頻率降冪排序，取前 maxColors 個
+  final sorted = histogram.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  final selected = sorted.take(maxColors).toList();
+
+  return selected.map((e) {
+    final key = e.key;
+    return _PaletteColor((key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF);
+  }).toList();
+}
+
+/// 在調色盤中尋找與目標 RGB 最接近的顏色索引（歐幾里得距離）。
+int _findNearestPaletteIndex(int r, int g, int b, List<_PaletteColor> palette) {
+  var bestIndex = 0;
+  var bestDist = 0x7FFFFFFF;
+  for (var i = 0; i < palette.length; i++) {
+    final pc = palette[i];
+    final dr = r - pc.r;
+    final dg = g - pc.g;
+    final db = b - pc.b;
+    final dist = dr * dr + dg * dg + db * db;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
+
+// ─── ICNS 生成 ───────────────────────────────────────────────
+
+/// ICNS 圖示類型代碼（4 字元 OSType）。
+class _IcnsType {
+  final String code;
+  final int size;
+  const _IcnsType(this.code, this.size);
+}
+
+/// 標準 ICNS 圖示類型代碼對應表（PNG 格式）。
+const _icnsTypes = [
+  _IcnsType('icp4', 16),
+  _IcnsType('icp5', 32),
+  _IcnsType('icp6', 64),
+  _IcnsType('ic07', 128),
+  _IcnsType('ic08', 256),
+  _IcnsType('ic09', 512),
+  _IcnsType('ic10', 1024),
+];
+
+/// 生成多尺寸 ICNS 檔案（macOS 用）。
+///
+/// 內含所有標準尺寸（16～1024），各以 PNG 格式封裝。
+Future<bool> _generarIcns(
+  String icnsPath,
+  List<IconOutput> icnsSpecs,
+  img.Image? fgImage,
+  img.Image? bgImage,
+  String projectPath,
+  AppStrings s, {
+  double? radius,
+  double? marginValue,
+  bool marginIsPercent = false,
+}) async {
+  if (fgImage == null && bgImage == null) return false;
+
+  final entries = <_IcnsType, Uint8List>{};
+  final generatedImages = <int, img.Image>{};
+
+  // 輔助：取得或生成指定尺寸的圖片
+  img.Image _getOrGenerate(int size) {
+    return generatedImages.putIfAbsent(size, () {
+      final marginForSize = (bgImage != null)
+          ? _calcularMargenRaw(marginValue, marginIsPercent, size)
+          : 0.0;
+      return _generarImagenParaTamanio(
+        size, size, fgImage, bgImage,
+        whiteBase: false, radius: radius, margin: marginForSize,
+      );
+    });
+  }
+
+  // 為每個 ICNS 尺寸產生 PNG 資料
+  for (final type in _icnsTypes) {
+    // 檢查該尺寸是否在 spec 中
+    final hasSize = icnsSpecs.any((s) => s.width == type.size);
+    if (!hasSize) continue;
+    final image = _getOrGenerate(type.size);
+    entries[type] = Uint8List.fromList(img.encodePng(image));
+  }
+
+  if (entries.isEmpty) return false;
+
+  final icnsBytes = _encodeIcns(entries);
+
+  final filePath = p.join(projectPath, icnsPath);
+  try {
+    final oldFile = File(filePath);
+    final oldSize = oldFile.existsSync() ? oldFile.lengthSync() : null;
+
+    final dir = Directory(p.dirname(filePath));
+    if (!dir.existsSync()) {
+      dir.createSync(recursive: true);
+    }
+    await File(filePath).writeAsBytes(icnsBytes);
+
+    final newSize = File(filePath).lengthSync();
+    final tipo = _layerTypeString(icnsSpecs.first.layer, false, s);
+    final oldSizeStr = oldSize != null ? _formatSize(oldSize) : s.newFileLabel;
+
+    print(s.generandoIcnsDetalle(normalizarRuta(icnsPath), tipo, oldSizeStr, _formatSize(newSize)));
+    return true;
+  } catch (e) {
+    print(s.writeError(normalizarRuta(filePath), e.toString()));
+    return false;
+  }
+}
+
+/// 將 ICNS 條目編碼為 .icns 檔案格式。
+///
+/// 格式：'icns' 魔術字 + 總長度 + 逐條目（類型代碼 + 長度 + PNG 資料）。
+Uint8List _encodeIcns(Map<_IcnsType, Uint8List> entries) {
+  // 計算總長度
+  var totalLength = 8; // magic + length header
+  for (final entry in entries.entries) {
+    totalLength += 8 + entry.value.length; // type(4) + length(4) + data
+  }
+
+  final buffer = BytesBuilder();
+
+  // 檔頭魔術字
+  buffer.add('icns'.codeUnits);
+  buffer.add(_uint32BE(totalLength));
+
+  // 各條目
+  for (final entry in entries.entries) {
+    final type = entry.key.code;
+    final data = entry.value;
+    buffer.add(type.codeUnits);
+    buffer.add(_uint32BE(8 + data.length)); // 條目長度（含自身 8-byte 頭）
+    buffer.add(data);
+  }
+
+  return buffer.takeBytes();
+}
+
+// ─── 位元組輔助函式 ──────────────────────────────────────────
+
+/// 寫入 16-bit little-endian 無號整數。
+List<int> _uint16LE(int v) => [v & 0xFF, (v >> 8) & 0xFF];
+
+/// 寫入 32-bit little-endian 無號整數。
+List<int> _uint32LE(int v) =>
+    [v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF];
+
+/// 寫入 32-bit little-endian 有號整數（用於 BITMAPINFOHEADER）。
+List<int> _int32LE(int v) => _uint32LE(v);
+
+/// 寫入 32-bit big-endian 無號整數。
+List<int> _uint32BE(int v) =>
+    [(v >> 24) & 0xFF, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF];
 
 /// 將前景圖按比例縮放，使其剛好容納在目標尺寸內（保持寬高比）。
 ///

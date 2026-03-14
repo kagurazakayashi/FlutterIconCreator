@@ -17,6 +17,31 @@
 - **备份还原** — 可将现有图标文件整体备份，支持完整还原
 - **多语言** — 支持简体中文、繁體中文、English、日本語
 
+## 减小仓库体积
+
+本工具会生成 **50+ 个图标文件**，你不需要将这些生成文件提交到 Git。只需提交你的 **1-2 张源图片**（前景/背景），需要时重新生成图标即可。
+
+要阻止生成的图标被提交，请将以下内容添加到你的 Flutter 项目的 `.gitignore` 中：
+
+```gitignore
+### Icon Images ###
+# Ignore generated icon/launcher image files within platform directories
+android/**/*[Ii]con*.png
+android/**/ic_launcher*.png
+android/**/launch_background.png
+ios/**/*[Ii]con*.png
+ios/**/LaunchImage*.png
+macos/**/*[Ii]con*.png
+macos/**/*[Ii]con*.icns
+web/**/*[Ii]con*.png
+windows/**/*[Ii]con*.png
+windows/**/*[Ii]con*.ico
+ico/backup
+### End of Icon Images ###
+```
+
+这样你的仓库将保持轻量——仅追踪源图片和工具本身，各平台图标文件可按需重新生成。
+
 ## 系统要求
 
 - [Dart SDK](https://dart.dev/get-dart) **3.0.0** 或更高版本

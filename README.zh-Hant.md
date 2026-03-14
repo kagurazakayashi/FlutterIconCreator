@@ -17,6 +17,31 @@
 - **備份還原** — 可將現有圖示檔案整體備份，支援完整還原
 - **多語言** — 支援简体中文、繁體中文、English、日本語
 
+## 縮減儲存庫體積
+
+本工具會產生 **50+ 個圖示檔案**，你不需要將這些產生出來的檔案提交到 Git。只需提交你的 **1-2 張來源圖片**（前景/背景），需要時再重新產生圖示即可。
+
+要阻止產生的圖示被提交，請將以下內容加入你的 Flutter 專案的 `.gitignore` 中：
+
+```gitignore
+### Icon Images ###
+# Ignore generated icon/launcher image files within platform directories
+android/**/*[Ii]con*.png
+android/**/ic_launcher*.png
+android/**/launch_background.png
+ios/**/*[Ii]con*.png
+ios/**/LaunchImage*.png
+macos/**/*[Ii]con*.png
+macos/**/*[Ii]con*.icns
+web/**/*[Ii]con*.png
+windows/**/*[Ii]con*.png
+windows/**/*[Ii]con*.ico
+ico/backup
+### End of Icon Images ###
+```
+
+如此一來你的儲存庫將保持輕量——僅追蹤來源圖片與工具本身，各平台圖示檔案可按需重新產生。
+
 ## 系統需求
 
 - [Dart SDK](https://dart.dev/get-dart) **3.0.0** 或更高版本

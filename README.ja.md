@@ -17,6 +17,31 @@ Flutter プロジェクト向けに、各プラットフォームのアプリア
 - **バックアップと復元** — 既存アイコンファイルの完全バックアップと復元
 - **多言語対応** — 简体中文、繁體中文、English、日本語
 
+## リポジトリサイズの削減
+
+本ツールは全プラットフォームで **50 以上のアイコンファイル** を生成しますが、これらの生成ファイルを Git にコミットする必要はありません。**1-2 枚のソース画像**（前景/背景）だけをコミットし、必要に応じてアイコンを再生成してください。
+
+生成されたアイコンがコミットされないよう、Flutter プロジェクトの `.gitignore` に以下を追加してください：
+
+```gitignore
+### Icon Images ###
+# Ignore generated icon/launcher image files within platform directories
+android/**/*[Ii]con*.png
+android/**/ic_launcher*.png
+android/**/launch_background.png
+ios/**/*[Ii]con*.png
+ios/**/LaunchImage*.png
+macos/**/*[Ii]con*.png
+macos/**/*[Ii]con*.icns
+web/**/*[Ii]con*.png
+windows/**/*[Ii]con*.png
+windows/**/*[Ii]con*.ico
+ico/backup
+### End of Icon Images ###
+```
+
+これにより、リポジトリは軽量に保たれます——ソース画像とツールのみが追跡され、プラットフォーム固有のアイコンファイルはオンデマンドで再生成されます。
+
 ## システム要件
 
 - [Dart SDK](https://dart.dev/get-dart) **3.0.0** 以上
