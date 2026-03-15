@@ -13,6 +13,7 @@ Supports six major platforms — **Android**, **iOS**, **Web**, **Windows**, **m
 - **Corner radius & margin** — Customizable corner radius and foreground margin
 - **ICO generation** — Auto-generates multi-size ICO files for Windows
 - **Launch images** — Generates platform-specific launch/splash images
+- **Parallel processing** — Multi-threaded icon generation using all CPU cores by default
 - **List mode** — Outputs existing icon files with size, dimensions, etc. in JSON format
 - **Backup & restore** — Backup all existing icons and restore them in full
 - **Multi-language** — Supports 简体中文, 繁體中文, English, 日本語
@@ -147,16 +148,17 @@ dart run bin/flutter_icon_creator.dart -f /path/to/flutter_project --restore bac
 
 | Short | Long | Description | Default | Required |
 |-------|------|-------------|---------|----------|
-| `-f` | — | Flutter project root directory path | — | Yes |
-| `-p` | — | Target platforms, comma-separated | `all` | No |
-| `-i` | — | Foreground icon source image path | — | No\* |
-| `-b` | — | Background image source path | — | No |
-| `-r` | — | Icon corner radius in pixels | `0` | No |
-| `-m` | — | Foreground margin. Use pixel value (e.g. `20`) or percentage (e.g. `10%`) | `0` | No |
-| `-l` | — | List scan mode (outputs JSON) | `false` | No |
-| — | `--backup` | Backup icons to specified directory | — | No |
-| — | `--restore` | Restore icons from backup directory | — | No |
-| — | `--lang` | Output language | System locale | No |
+| `-f` | `--project` | Flutter project root directory path | — | Yes |
+| `-p` | `--platforms` | Target platforms, comma-separated | `all` | No |
+| `-i` | `--icon` | Foreground icon source image path | — | No\* |
+| `-b` | `--background` | Background image source path | — | No |
+| `-r` | `--radius` | Icon corner radius in pixels | auto (0) | No |
+| `-m` | `--margin` | Foreground margin: pixel (e.g. `20`) or percentage (e.g. `10%`) | `10%` | No |
+| `-l` | `--list` | List scan mode (outputs JSON) | `false` | No |
+| `-B` | `--backup` | Backup icons to specified directory | — | No |
+| `-R` | `--restore` | Restore icons from backup directory | — | No |
+| `-L` | `--locale` | Output language | System locale | No |
+| `-j` | `--jobs` | Number of parallel workers (set to 1 to disable parallelism) | CPU cores | No |
 
 \* In non-list/backup/restore mode, at least one of `-i` or `-b` is required.
 
@@ -191,10 +193,16 @@ dart run bin/flutter_icon_creator.dart -f . -i assets/app_icon.png -r 8 -m 5%
 dart run bin/flutter_icon_creator.dart -f . -i icon.png -p web
 
 # Use Chinese output
-dart run bin/flutter_icon_creator.dart -f . -i icon.png --lang zh_CN
+dart run bin/flutter_icon_creator.dart -f . -i icon.png --locale zh_CN
 
 # After compilation
 flutter_icon_creator -f /path/to/flutter_project -i icon.png -r 12 -m 15%
+
+# Use parallel workers for faster generation
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 4
+
+# Single-threaded mode
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 1
 ```
 
 ### Generated Files per Platform

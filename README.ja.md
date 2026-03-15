@@ -13,6 +13,7 @@ Flutter プロジェクト向けに、各プラットフォームのアプリア
 - **角丸とマージン** — 角丸半径と前景マージンをカスタマイズ可能
 - **ICO 生成** — Windows 向けのマルチサイズ ICO ファイルを自動生成
 - **スプラッシュ画像** — 各プラットフォームの起動画像も同時生成
+- **並列処理** — 全 CPU コアを利用したマルチスレッドアイコン生成
 - **一覧表示モード** — 既存アイコンファイルのサイズ・寸法などの詳細を JSON 形式で出力
 - **バックアップと復元** — 既存アイコンファイルの完全バックアップと復元
 - **多言語対応** — 简体中文、繁體中文、English、日本語
@@ -147,16 +148,17 @@ dart run bin/flutter_icon_creator.dart -f /path/to/flutter_project --restore bac
 
 | 短縮 | 長形式 | 説明 | デフォルト値 | 必須 |
 |------|--------|------|-------------|------|
-| `-f` | — | Flutter プロジェクトのルートディレクトリパス | — | はい |
-| `-p` | — | 対象プラットフォーム（カンマ区切り） | `all` | いいえ |
-| `-i` | — | 前景アイコンのソース画像パス | — | いいえ\* |
-| `-b` | — | 背景画像のソース画像パス | — | いいえ |
-| `-r` | — | アイコン角丸半径（ピクセル） | `0` | いいえ |
-| `-m` | — | 前景マージン。ピクセル値（例: `20`）またはパーセント（例: `10%`） | `0` | いいえ |
-| `-l` | — | 一覧表示モード（JSON 出力） | `false` | いいえ |
-| — | `--backup` | 指定ディレクトリにアイコンをバックアップ | — | いいえ |
-| — | `--restore` | バックアップディレクトリからアイコンを復元 | — | いいえ |
-| — | `--lang` | 出力言語 | システム言語 | いいえ |
+| `-f` | `--project` | Flutter プロジェクトのルートディレクトリパス | — | はい |
+| `-p` | `--platforms` | 対象プラットフォーム（カンマ区切り） | `all` | いいえ |
+| `-i` | `--icon` | 前景アイコンのソース画像パス | — | いいえ\* |
+| `-b` | `--background` | 背景画像のソース画像パス | — | いいえ |
+| `-r` | `--radius` | アイコン角丸半径（ピクセル） | 自動 (0) | いいえ |
+| `-m` | `--margin` | 前景マージン。ピクセル値（例: `20`）またはパーセント（例: `10%`） | `10%` | いいえ |
+| `-l` | `--list` | 一覧表示モード（JSON 出力） | `false` | いいえ |
+| `-B` | `--backup` | 指定ディレクトリにアイコンをバックアップ | — | いいえ |
+| `-R` | `--restore` | バックアップディレクトリからアイコンを復元 | — | いいえ |
+| `-L` | `--locale` | 出力言語 | システム言語 | いいえ |
+| `-j` | `--jobs` | 並列ワーカー数（1 に設定すると並列処理を無効化） | CPU コア数 | いいえ |
 
 \* 一覧表示/バックアップ/復元モード以外では、`-i` または `-b` の少なくとも 1 つが必要です。
 
@@ -191,10 +193,16 @@ dart run bin/flutter_icon_creator.dart -f . -i assets/app_icon.png -r 8 -m 5%
 dart run bin/flutter_icon_creator.dart -f . -i icon.png -p web
 
 # 日本語出力を指定
-dart run bin/flutter_icon_creator.dart -f . -i icon.png --lang ja
+dart run bin/flutter_icon_creator.dart -f . -i icon.png --locale ja
 
 # コンパイル後
 flutter_icon_creator -f /path/to/flutter_project -i icon.png -r 12 -m 15%
+
+# 並列ワーカーで高速生成
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 4
+
+# シングルスレッドモード
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 1
 ```
 
 ### プラットフォーム別生成ファイル一覧

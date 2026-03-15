@@ -1,6 +1,6 @@
 ---
 name: flutter-icon-creator
-description: Generate platform-specific app icons and launch images for Flutter projects. Use when the user needs to create or update Android/iOS/Web/Windows/macOS/Linux icons from source images. Supports adaptive icons, corner radius, margin, backup/restore, and list scan mode.
+description: Generate platform-specific app icons and launch images for Flutter projects. Use when the user needs to create or update Android/iOS/Web/Windows/macOS/Linux icons from source images. Supports adaptive icons, corner radius, margin, backup/restore, parallel multi-threading, and list scan mode.
 license: Mulan PSL v2
 compatibility: claude-code, opencode, codex, openclaw, cursor, gemini-cli, copilot
 metadata:
@@ -66,20 +66,20 @@ flutter_icon_creator <arguments>
 
 | Flag | Description |
 |------|-------------|
-| `-f <path>` | Flutter project root directory path |
+| `-f <path>` / `--project <path>` | Flutter project root directory path |
 
 ### Source Image Parameters
 
 | Flag | Description | Note |
 |------|-------------|------|
-| `-i <path>` | Foreground icon source image (PNG recommended) | Required unless using -l/--backup/--restore |
-| `-b <path>` | Background image source image | Optional. Used for Android adaptive background or merged composite |
+| `-i <path>` / `--icon <path>` | Foreground icon source image (PNG recommended) | Required unless using -l/--backup/--restore |
+| `-b <path>` / `--background <path>` | Background image source image | Optional. Used for Android adaptive background or merged composite |
 
 ### Platform Selection
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p <list>` | Target platforms, comma-separated | `all` |
+| `-p <list>` / `--platforms <list>` | Target platforms, comma-separated | `all` |
 
 Valid platform values: `android`, `ios`, `web`, `windows`, `macos`, `linux`, `all`
 
@@ -87,22 +87,28 @@ Valid platform values: `android`, `ios`, `web`, `windows`, `macos`, `linux`, `al
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-r <number>` | Corner radius in pixels. For Android adaptive icons, a platform-appropriate value (~22.37% of canvas) is used automatically. iOS icons do not apply corner radius (system handles it). | `0` |
-| `-m <value>` | Foreground margin. Supports pixel values like `20` or percentages like `10%`. Applied to the foreground layer within the icon canvas. | `0` |
+| `-r <number>` / `--radius <number>` | Corner radius in pixels. For Android adaptive icons, a platform-appropriate value (~22.37% of canvas) is used automatically. iOS icons do not apply corner radius (system handles it). | `0` (auto) |
+| `-m <value>` / `--margin <value>` | Foreground margin. Supports pixel values like `20` or percentages like `10%`. Applied to the foreground layer within the icon canvas. | `10%` |
 
 ### Operational Modes
 
 | Flag | Description |
 |------|-------------|
-| `-l` | List scan mode: outputs JSON with all existing icon file paths, dimensions, sizes, and tags. No icons are generated. |
-| `--backup <dir>` | Backup all existing icon files to the specified directory. Preserves platform directory structure. |
-| `--restore <dir>` | Restore icon files from a previous backup directory. Overwrites existing files. |
+| `-l` / `--list` | List scan mode: outputs JSON with all existing icon file paths, dimensions, sizes, and tags. No icons are generated. |
+| `-B <dir>` / `--backup <dir>` | Backup all existing icon files to the specified directory. Preserves platform directory structure. |
+| `-R <dir>` / `--restore <dir>` | Restore icon files from a previous backup directory. Overwrites existing files. |
+
+### Parallelism
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-j <number>` / `--jobs <number>` | Number of parallel workers for image generation. Set to `1` to disable parallelism. | CPU core count |
 
 ### Localization
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--lang <code>` | Output language for messages | Auto-detected from system locale |
+| `-L <code>` / `--locale <code>` | Output language for messages | Auto-detected from system locale |
 
 Valid language codes: `zh_CN`, `zh_TW`, `en`, `ja`
 
@@ -200,7 +206,18 @@ dart run bin/flutter_icon_creator.dart -f . --restore icons_backup/
 ### Set output language
 
 ```bash
-dart run bin/flutter_icon_creator.dart -f . -i icon.png --lang ja
+dart run bin/flutter_icon_creator.dart -f . -i icon.png --locale ja
+```
+
+### Control parallelism (faster generation on multi-core CPUs)
+
+```bash
+# Use 4 parallel workers
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 4
+
+# Disable parallelism (single-threaded)
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 1
+```
 ```
 
 ## Image Format Support

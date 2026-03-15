@@ -19,12 +19,15 @@ class CliArgs {
   final double? marginValue;
   /// 邊距是否為百分比模式。
   final bool marginIsPercent;
+  /// 並行工作數量（同時生成圖示的 isolate 數），預設為 CPU 核心數。
+  final int jobs;
 
   CliArgs({
     required this.flutterProjectPath,
     required this.platforms,
     required this.listMode,
     required this.locale,
+    required this.jobs,
     this.iconSourcePath,
     this.backgroundSourcePath,
     this.backupPath,
@@ -89,65 +92,74 @@ String normalizarRuta(String path) {
 ArgParser buildArgParser(SupportedLocale defaultLocale) {
   final parser = ArgParser()
     ..addOption(
-      'f',
+      'project',
       abbr: 'f',
       help: 'Flutter 项目根目录路径',
       valueHelp: 'path',
       mandatory: true,
     )
     ..addOption(
-      'p',
+      'platforms',
       abbr: 'p',
       help: '要处理的平台，逗号分隔 (${validPlatforms.join(',')})，默认 all',
       valueHelp: 'platforms',
       defaultsTo: 'all',
     )
     ..addFlag(
-      'l',
+      'list',
       abbr: 'l',
       help: '扫描并列出所选平台的所有图标和启动图片文件，不做实际转换',
       negatable: false,
     )
     ..addOption(
-      'i',
+      'icon',
       abbr: 'i',
       help: '前景图标源图片文件路径',
       valueHelp: 'path',
     )
     ..addOption(
-      'b',
+      'background',
       abbr: 'b',
       help: '背景图标源图片文件路径',
       valueHelp: 'path',
     )
     ..addOption(
       'backup',
+      abbr: 'B',
       help: '备份扫描到的图标文件到指定目录',
       valueHelp: 'path',
     )
     ..addOption(
       'restore',
+      abbr: 'R',
       help: '从备份目录恢复图标文件到 Flutter 项目中',
       valueHelp: 'path',
     )
     ..addOption(
-      'lang',
+      'locale',
+      abbr: 'L',
       help: '输出语言 (zh_CN, zh_TW, en, ja)，默认跟随系统语言',
       valueHelp: 'locale',
       defaultsTo: localeToCode(defaultLocale),
       allowed: ['zh_CN', 'zh_TW', 'en', 'ja'],
     )
     ..addOption(
-      'r',
+      'radius',
       abbr: 'r',
       help: '图标圆角半径（像素），默认根据 iOS 圆角比例自动计算。仅对 iOS 以外的平台图标生效，启动画面不受影响',
       valueHelp: 'radius',
     )
     ..addOption(
-      'm',
+      'margin',
       abbr: 'm',
       help: '前景图距边缘的边距，支持像素（如 10）或百分比（如 10%），默认 10%',
       valueHelp: 'margin',
+    )
+    ..addOption(
+      'jobs',
+      abbr: 'j',
+      help: '并行工作线程数，默认为 CPU 核心数，设为 1 则禁用并行',
+      valueHelp: 'jobs',
     );
   return parser;
 }
@@ -157,9 +169,9 @@ CliArgs parseArgs(List<String> arguments) {
   final parser = buildArgParser(systemLocale);
   final results = parser.parse(arguments);
 
-  final flutterPath = normalizarRuta(results['f'] as String);
+  final flutterPath = normalizarRuta(results['project'] as String);
 
-  final platformsRaw = results['p'] as String;
+  final platformsRaw = results['platforms'] as String;
   List<String> platforms;
   if (platformsRaw == 'all') {
     platforms = validPlatforms.toList();
@@ -171,22 +183,22 @@ CliArgs parseArgs(List<String> arguments) {
         .toList();
   }
 
-  final listMode = results['l'] as bool;
-  final iconPathRaw = results['i'] as String?;
+  final listMode = results['list'] as bool;
+  final iconPathRaw = results['icon'] as String?;
   final iconPath = iconPathRaw != null ? normalizarRuta(iconPathRaw) : null;
-  final backgroundPathRaw = results['b'] as String?;
+  final backgroundPathRaw = results['background'] as String?;
   final backgroundPath = backgroundPathRaw != null ? normalizarRuta(backgroundPathRaw) : null;
   final backupPathRaw = results['backup'] as String?;
   final backupPath = backupPathRaw != null ? normalizarRuta(backupPathRaw) : null;
   final restorePathRaw = results['restore'] as String?;
   final restorePath = restorePathRaw != null ? normalizarRuta(restorePathRaw) : null;
 
-  final lang = results['lang'] as String;
-  final locale = localeFromString(lang);
+  final localeCode = results['locale'] as String;
+  final locale = localeFromString(localeCode);
 
   // 解析圓角半徑參數（選用，像素值）
   double? radius;
-  final radiusRaw = results['r'] as String?;
+  final radiusRaw = results['radius'] as String?;
   if (radiusRaw != null) {
     final parsed = double.tryParse(radiusRaw);
     if (parsed == null) {
@@ -201,7 +213,7 @@ CliArgs parseArgs(List<String> arguments) {
   // 解析邊距參數（選用，支援像素值如「10」或百分比如「10%」）
   double? marginValue;
   var marginIsPercent = false;
-  final marginRaw = results['m'] as String?;
+  final marginRaw = results['margin'] as String?;
   if (marginRaw != null) {
     final trimmed = marginRaw.trim();
     if (trimmed.endsWith('%')) {
@@ -227,11 +239,23 @@ CliArgs parseArgs(List<String> arguments) {
     }
   }
 
+  // 解析並行工作數量（可選，預設為 CPU 核心數）
+  var jobs = Platform.numberOfProcessors;
+  final jobsRaw = results['jobs'] as String?;
+  if (jobsRaw != null) {
+    final parsed = int.tryParse(jobsRaw);
+    if (parsed == null || parsed < 1) {
+      throw FormatException('并行线程数必须为正整数: $jobsRaw');
+    }
+    jobs = parsed;
+  }
+
   return CliArgs(
     flutterProjectPath: flutterPath,
     platforms: platforms,
     listMode: listMode,
     locale: locale,
+    jobs: jobs,
     iconSourcePath: iconPath,
     backgroundSourcePath: backgroundPath,
     backupPath: backupPath,

@@ -13,6 +13,7 @@
 - **圆角与边距** — 可自定义圆角半径和前景边距
 - **ICO 生成** — 自动生成 Windows 所需的多尺寸 ICO 文件
 - **启动图片** — 同时生成各平台启动图片
+- **并行处理** — 多线程生成图标，默认利用所有 CPU 核心
 - **扫描列表** — 列出已有图标文件及其尺寸、大小等详细信息（JSON 格式）
 - **备份还原** — 可将现有图标文件整体备份，支持完整还原
 - **多语言** — 支持简体中文、繁體中文、English、日本語
@@ -145,18 +146,19 @@ dart run bin/flutter_icon_creator.dart -f /path/to/flutter_project --restore bac
 
 ### 参数说明
 
-| 短参数 | 长参数      | 说明                                                | 默认值   | 必填 |
-| ------ | ----------- | --------------------------------------------------- | -------- | ---- |
-| `-f`   | —           | Flutter 项目根目录路径                              | —        | 是   |
-| `-p`   | —           | 目标平台，逗号分隔                                  | `all`    | 否   |
-| `-i`   | —           | 前景图标源图片路径                                  | —        | 否\* |
-| `-b`   | —           | 背景图片源图片路径                                  | —        | 否   |
-| `-r`   | —           | 图标圆角半径（像素）                                | `0`      | 否   |
-| `-m`   | —           | 前景边距。可用像素值（如 `20`）或百分比（如 `10%`） | `0`      | 否   |
-| `-l`   | —           | 列表扫描模式（输出 JSON）                           | `false`  | 否   |
-| —      | `--backup`  | 备份图标到指定目录                                  | —        | 否   |
-| —      | `--restore` | 从备份目录还原图标                                  | —        | 否   |
-| —      | `--lang`    | 输出语言                                            | 系统语言 | 否   |
+| 短参数 | 长参数 | 说明 | 默认值 | 必填 |
+| ------ | ------ | ---- | ------ | ---- |
+| `-f` | `--project` | Flutter 项目根目录路径 | — | 是 |
+| `-p` | `--platforms` | 目标平台，逗号分隔 | `all` | 否 |
+| `-i` | `--icon` | 前景图标源图片路径 | — | 否\* |
+| `-b` | `--background` | 背景图片源图片路径 | — | 否 |
+| `-r` | `--radius` | 图标圆角半径（像素） | 自动 (0) | 否 |
+| `-m` | `--margin` | 前景边距。可用像素值（如 `20`）或百分比（如 `10%`） | `10%` | 否 |
+| `-l` | `--list` | 列表扫描模式（输出 JSON） | `false` | 否 |
+| `-B` | `--backup` | 备份图标到指定目录 | — | 否 |
+| `-R` | `--restore` | 从备份目录还原图标 | — | 否 |
+| `-L` | `--locale` | 输出语言 | 系统语言 | 否 |
+| `-j` | `--jobs` | 并行工作线程数（设为 1 则禁用并行） | CPU 核心数 | 否 |
 
 \* 非列表/备份/还原模式下，需至少提供 `-i` 或 `-b` 之一。
 
@@ -191,10 +193,16 @@ dart run bin/flutter_icon_creator.dart -f . -i assets/app_icon.png -r 8 -m 5%
 dart run bin/flutter_icon_creator.dart -f . -i icon.png -p web
 
 # 指定中文输出
-dart run bin/flutter_icon_creator.dart -f . -i icon.png --lang zh_CN
+dart run bin/flutter_icon_creator.dart -f . -i icon.png --locale zh_CN
 
 # 编译后使用
 flutter_icon_creator -f /path/to/flutter_project -i icon.png -r 12 -m 15%
+
+# 使用并行工作线程加速生成
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 4
+
+# 单线程模式
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 1
 ```
 
 ### 各平台生成文件清单

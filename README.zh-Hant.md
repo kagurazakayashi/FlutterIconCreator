@@ -13,6 +13,7 @@
 - **圓角與邊距** — 可自訂圓角半徑與前景邊距
 - **ICO 產生** — 自動產生 Windows 所需的多尺寸 ICO 檔案
 - **啟動圖片** — 同時產生各平台啟動圖片
+- **並行處理** — 多執行緒產生圖示，預設利用所有 CPU 核心
 - **掃描列表** — 列出既有圖示檔案及其尺寸、大小等詳細資訊（JSON 格式）
 - **備份還原** — 可將現有圖示檔案整體備份，支援完整還原
 - **多語言** — 支援简体中文、繁體中文、English、日本語
@@ -146,17 +147,18 @@ dart run bin/flutter_icon_creator.dart -f /path/to/flutter_project --restore bac
 ### 參數說明
 
 | 短參數 | 長參數 | 說明 | 預設值 | 必填 |
-|--------|--------|------|--------|------|
-| `-f` | — | Flutter 專案根目錄路徑 | — | 是 |
-| `-p` | — | 目標平台，逗號分隔 | `all` | 否 |
-| `-i` | — | 前景圖示來源圖片路徑 | — | 否\* |
-| `-b` | — | 背景圖片來源圖片路徑 | — | 否 |
-| `-r` | — | 圖示圓角半徑（像素） | `0` | 否 |
-| `-m` | — | 前景邊距。可用像素值（如 `20`）或百分比（如 `10%`） | `0` | 否 |
-| `-l` | — | 列表掃描模式（輸出 JSON） | `false` | 否 |
-| — | `--backup` | 備份圖示到指定目錄 | — | 否 |
-| — | `--restore` | 從備份目錄還原圖示 | — | 否 |
-| — | `--lang` | 輸出語言 | 系統語言 | 否 |
+| ------ | ------ | ---- | ------ | ---- |
+| `-f` | `--project` | Flutter 專案根目錄路徑 | — | 是 |
+| `-p` | `--platforms` | 目標平台，逗號分隔 | `all` | 否 |
+| `-i` | `--icon` | 前景圖示來源圖片路徑 | — | 否\* |
+| `-b` | `--background` | 背景圖片來源圖片路徑 | — | 否 |
+| `-r` | `--radius` | 圖示圓角半徑（像素） | 自動 (0) | 否 |
+| `-m` | `--margin` | 前景邊距。可用像素值（如 `20`）或百分比（如 `10%`） | `10%` | 否 |
+| `-l` | `--list` | 列表掃描模式（輸出 JSON） | `false` | 否 |
+| `-B` | `--backup` | 備份圖示到指定目錄 | — | 否 |
+| `-R` | `--restore` | 從備份目錄還原圖示 | — | 否 |
+| `-L` | `--locale` | 輸出語言 | 系統語言 | 否 |
+| `-j` | `--jobs` | 並行工作執行緒數（設為 1 則禁用並行） | CPU 核心數 | 否 |
 
 \* 非列表/備份/還原模式下，需至少提供 `-i` 或 `-b` 之一。
 
@@ -191,10 +193,16 @@ dart run bin/flutter_icon_creator.dart -f . -i assets/app_icon.png -r 8 -m 5%
 dart run bin/flutter_icon_creator.dart -f . -i icon.png -p web
 
 # 指定中文輸出
-dart run bin/flutter_icon_creator.dart -f . -i icon.png --lang zh_TW
+dart run bin/flutter_icon_creator.dart -f . -i icon.png --locale zh_TW
 
 # 編譯後使用
 flutter_icon_creator -f /path/to/flutter_project -i icon.png -r 12 -m 15%
+
+# 使用並行工作執行緒加速生成
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 4
+
+# 單執行緒模式
+dart run bin/flutter_icon_creator.dart -f . -i icon.png -j 1
 ```
 
 ### 各平台產生檔案清單
