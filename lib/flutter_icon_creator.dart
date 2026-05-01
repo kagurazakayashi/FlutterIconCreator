@@ -6,7 +6,7 @@ import 'src/icon_generator.dart';
 import 'src/list_mode.dart';
 import 'src/validator.dart';
 
-void run(List<String> arguments) {
+Future<void> run(List<String> arguments) async {
   final AppStrings s;
   final CliArgs args;
 
@@ -56,5 +56,5 @@ void run(List<String> arguments) {
   }
 
   // 圖示生成模式：為各平台產生圖示與啟動圖片
-  runGenerate(args, s);
+  await runGenerate(args, s);
 }
