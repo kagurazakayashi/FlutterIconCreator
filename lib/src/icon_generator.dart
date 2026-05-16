@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show Directory, File, stdout, stderr;
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -20,7 +20,7 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
   final hasBg = args.backgroundSourcePath != null;
 
   if (!hasFg && !hasBg) {
-    print(s.noSourceImages);
+    stdout.writeln(s.noSourceImages);
     return;
   }
 
@@ -32,7 +32,7 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
     final bytes = await File(args.iconSourcePath!).readAsBytes();
     fgImage = img.decodeImage(bytes);
     if (fgImage == null) {
-      print(s.decodeImageFailed(args.iconSourcePath!));
+      stderr.writeln(s.decodeImageFailed(args.iconSourcePath!));
       return;
     }
   }
@@ -41,7 +41,7 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
     final bytes = await File(args.backgroundSourcePath!).readAsBytes();
     bgImage = img.decodeImage(bytes);
     if (bgImage == null) {
-      print(s.decodeImageFailed(args.backgroundSourcePath!));
+      stderr.writeln(s.decodeImageFailed(args.backgroundSourcePath!));
       return;
     }
   }
@@ -66,7 +66,7 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
     final spec = getPlatformSpec(platform);
     if (spec == null) continue;
 
-    print(s.procesandoPlatforma(platform));
+    stdout.writeln(s.procesandoPlatforma(platform));
 
     final outputs = _scanAndBuildOutputs(
       args.flutterProjectPath, platform, spec, s,
@@ -90,11 +90,11 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
 
       // 檢查略過條件
       if (output.layer == ImageLayer.foreground && fgImage == null) {
-        print('  ${s.skippingLayerFg(normalizarRuta(output.relativePath))}');
+        stdout.writeln('  ${s.skippingLayerFg(normalizarRuta(output.relativePath))}');
         continue;
       }
       if (output.layer == ImageLayer.background && bgImage == null) {
-        print('  ${s.skippingLayerBg(normalizarRuta(output.relativePath))}');
+        stdout.writeln('  ${s.skippingLayerBg(normalizarRuta(output.relativePath))}');
         continue;
       }
       if (output.layer == ImageLayer.merged &&
@@ -187,7 +187,7 @@ Future<void> runGenerate(CliArgs args, AppStrings s) async {
     }
   }
 
-  print(s.generacionCompletada(totalGenerated));
+  stdout.writeln(s.generacionCompletada(totalGenerated));
 }
 
 // ─── 內部資料結構 ─────────────────────────────────────────────
@@ -269,7 +269,7 @@ Future<bool> _procesarPngTask(
   );
 
   if (pngBytes.isEmpty) {
-    print(
+    stdout.writeln(
         '  ${s.writeError(normalizarRuta(output.relativePath), '生成失敗')}');
     return false;
   }
@@ -290,7 +290,7 @@ Future<bool> _procesarPngTask(
     final tipo = _layerTypeString(output.layer, task.whiteBase, s);
     final oldSizeStr = oldSize != null ? _formatSize(oldSize) : s.newFileLabel;
 
-    print(s.generandoIconoDetalle(
+    stdout.writeln(s.generandoIconoDetalle(
       normalizarRuta(output.relativePath),
       output.width,
       output.height,
@@ -300,7 +300,7 @@ Future<bool> _procesarPngTask(
     ));
     return true;
   } catch (e) {
-    print(s.writeError(normalizarRuta(filePath), e.toString()));
+    stderr.writeln(s.writeError(normalizarRuta(filePath), e.toString()));
     return false;
   }
 }
@@ -423,11 +423,11 @@ Future<bool> _generarIcoParalelo(
     final tipo = _layerTypeString(icoSpecs.first.layer, whiteBase, s);
     final oldSizeStr = oldSize != null ? _formatSize(oldSize) : s.newFileLabel;
 
-    print(s.generandoIcoDetalle(
+    stdout.writeln(s.generandoIcoDetalle(
         normalizarRuta(icoPath), tipo, oldSizeStr, _formatSize(newSize)));
     return true;
   } catch (e) {
-    print(s.writeError(normalizarRuta(filePath), e.toString()));
+    stderr.writeln(s.writeError(normalizarRuta(filePath), e.toString()));
     return false;
   }
 }
@@ -517,11 +517,11 @@ Future<bool> _generarIcnsParalelo(
     final tipo = _layerTypeString(icnsSpecs.first.layer, false, s);
     final oldSizeStr = oldSize != null ? _formatSize(oldSize) : s.newFileLabel;
 
-    print(s.generandoIcnsDetalle(
+    stdout.writeln(s.generandoIcnsDetalle(
         normalizarRuta(icnsPath), tipo, oldSizeStr, _formatSize(newSize)));
     return true;
   } catch (e) {
-    print(s.writeError(normalizarRuta(filePath), e.toString()));
+    stderr.writeln(s.writeError(normalizarRuta(filePath), e.toString()));
     return false;
   }
 }

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show File, stdout;
 
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
@@ -24,7 +24,7 @@ void runListMode(CliArgs args) {
 
   // 輸出格式化 JSON
   const encoder = JsonEncoder.withIndent('  ');
-  print(encoder.convert(result));
+  stdout.writeln(encoder.convert(result));
 }
 
 /// 掃描單一平台並回傳 JSON 相容的資料結構。

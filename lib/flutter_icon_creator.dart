@@ -1,3 +1,5 @@
+import 'dart:io' show stderr;
+
 import 'src/backup_restore.dart';
 import 'src/cli_args.dart';
 import 'src/i18n/locale.dart';
@@ -15,9 +17,9 @@ Future<void> run(List<String> arguments) async {
     s = AppStrings(args.locale);
   } on FormatException catch (e) {
     final fallback = AppStrings(SupportedLocale.en);
-    print('${fallback.errorPrefix}: ${e.message}');
-    print('');
-    print(buildArgParser(detectSystemLocale()).usage);
+    stderr.writeln('${fallback.errorPrefix}: ${e.message}');
+    stderr.writeln('');
+    stderr.writeln(buildArgParser(detectSystemLocale()).usage);
     return;
   }
 
@@ -25,14 +27,14 @@ Future<void> run(List<String> arguments) async {
 
   if (result.warnings.isNotEmpty) {
     for (final w in result.warnings) {
-      print('${s.warningPrefix}: $w');
+      stderr.writeln('${s.warningPrefix}: $w');
     }
   }
 
   if (!result.isValid) {
-    print('${s.validationFailed}:');
+    stderr.writeln('${s.validationFailed}:');
     for (final e in result.errors) {
-      print('  ${s.errorPrefix}: $e');
+      stderr.writeln('  ${s.errorPrefix}: $e');
     }
     return;
   }

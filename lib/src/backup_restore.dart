@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show Directory, File, stdout, stderr;
 
 import 'package:path/path.dart' as p;
 
@@ -45,17 +45,17 @@ void runBackup(CliArgs args) {
 
     // 根據複製數量顯示不同方式的回報
     if (platformCount == 1) {
-      print(s.backupSingleFile(platform, platformCount, backupDirPath));
+      stdout.writeln(s.backupSingleFile(platform, platformCount, backupDirPath));
     } else {
-      print(s.backupMultipleFiles(platform, platformCount, backupDirPath));
+      stdout.writeln(s.backupMultipleFiles(platform, platformCount, backupDirPath));
     }
   }
 
-  print('');
+  stdout.writeln('');
   if (totalFiles == 0) {
-    print(s.backupNoFiles);
+    stdout.writeln(s.backupNoFiles);
   } else {
-    print(s.backupComplete(totalFiles, backupDirPath));
+    stdout.writeln(s.backupComplete(totalFiles, backupDirPath));
   }
 }
 
@@ -67,7 +67,7 @@ void runRestore(CliArgs args) {
 
   final restoreDir = Directory(restoreDirPath);
   if (!restoreDir.existsSync()) {
-    print(s.restoreDirNotFound(restoreDirPath));
+    stderr.writeln(s.restoreDirNotFound(restoreDirPath));
     return;
   }
 
@@ -102,17 +102,17 @@ void runRestore(CliArgs args) {
     totalFiles += platformCount;
 
     if (platformCount == 1) {
-      print(s.restoreSingleFile(platform, platformCount));
+      stdout.writeln(s.restoreSingleFile(platform, platformCount));
     } else {
-      print(s.restoreMultipleFiles(platform, platformCount));
+      stdout.writeln(s.restoreMultipleFiles(platform, platformCount));
     }
   }
 
-  print('');
+  stdout.writeln('');
   if (totalFiles == 0) {
-    print(s.restoreNoFiles);
+    stdout.writeln(s.restoreNoFiles);
   } else {
-    print(s.restoreComplete(totalFiles));
+    stdout.writeln(s.restoreComplete(totalFiles));
   }
 }
 
